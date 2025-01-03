@@ -12,7 +12,7 @@ typedef struct object{
 } object;
 
 #include "vertexMath.h"
-object parseFromFile(const char *filename);
+object parseObjFromFile(const char *filename);
 vec3 getCOM(object o);
 void freeObject(object o);
 

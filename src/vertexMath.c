@@ -1,9 +1,7 @@
 #include "vertexMath.h"
 #include "math.h"
-#include <stdlib.h>
-#include <stdio.h>
 #ifndef M_PI
-#define M_PI = 3.1425926535;
+#define M_PI 3.1425926535
 #endif
 
 vec3 ftovec3(const float x,const float y, const float z){
@@ -142,9 +140,7 @@ void lookAt(
   vec3 X = cross3(Y,Z);
   Y = cross3(Z,X);
   X = normalize(X);
-  printf("%f : ",Y.x);
   Y = normalize(Y);
-  printf("%f\n",Y.x);
 
   //make rotation part of view matrix
   viewMatrix[0][0] = X.x;
@@ -183,15 +179,11 @@ void point3DProjection(
     //apply ProjectionMatrix
     float clipSpacePoint[4];
     mat4Txvec4(clipSpacePoint,projMat,cameraPoint);
-    if(i == 0)
-      printf("Camera Point: %f %f %f %f\n",clipSpacePoint[0],clipSpacePoint[1],clipSpacePoint[2],clipSpacePoint[3]);
-
     //get normalized device coords (NDC)
     float ndcX = clipSpacePoint[0]/clipSpacePoint[3];
     float ndcY = clipSpacePoint[1]/clipSpacePoint[3];
-    if(i == 0)
-      printf("Camera Point: %f %f\n",ndcX,ndcY);
 
+    //set the point values
     points2D[i].x = (ndcX * 0.5f + 0.5f) * viewWidth;
     points2D[i].y = (1.0f - (ndcY * 0.5f + 0.5f)) * viewHeight;
   }

@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-object parseFromFile(const char *filename){
+object parseObjFromFile(const char *filename){
 
   object newO;
 
@@ -14,8 +14,8 @@ object parseFromFile(const char *filename){
   }
 
   int vCount = 0, fCount=0;
-  vec3 *tmpVerts = malloc(1024*sizeof(vec3));
-  face *tmpFace = malloc(1024*sizeof(face));
+  vec3 *tmpVerts = malloc(20000*sizeof(vec3));
+  face *tmpFace = malloc(20000*sizeof(face));
 
   char line[128];
   while (fgets(line,sizeof(line),file)){
