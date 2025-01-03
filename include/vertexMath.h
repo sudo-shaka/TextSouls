@@ -27,10 +27,11 @@ void lookAt(
     float viewMatrix[4][4]
     );
 void getProjectionMatrix(float projMat[4][4], float fov, float aspectR, float nearPlane, float farPlane);
+void mat4Txvec4(float result[4],const float mat[4][4], const float vec[4]);
 void mat4xvec4(float result[4],const float mat[4][4], const float vec[4]);
 void point3DProjection(
     const vec3 *points3D,
-    vec2 **points2D,
+    vec2 *points2D,
     int numPoints,
     const float projMat[4][4],
     const float viewMatrix[4][4],

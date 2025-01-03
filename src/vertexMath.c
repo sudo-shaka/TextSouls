@@ -12,6 +12,15 @@ vec3 ftovec3(const float x,const float y, const float z){
   return vec;
 }
 
+void mat4Txvec4(float result[4], const float mat[4][4], const float vec[4]){
+    for (int i = 0; i < 4; ++i) {
+        result[i] = 0.0f;
+        for (int j = 0; j < 4; ++j) {
+            result[i] += mat[j][i] * vec[j];
+        }
+    }
+}
+
 void mat4xvec4(float result[4], const float mat[4][4], const float vec[4]){
     for (int i = 0; i < 4; ++i) {
         result[i] = 0.0f;
@@ -112,7 +121,7 @@ vec3 rotateAround(const vec3 point, const vec3 pivot,const float angle, const ve
   float translatedPoint[4] =  {transP.x, transP.y, transP.z, 0.0f};
   float rotationMatrix[4][4], rotatedPoint[4];
   rotateMat(rotationMatrix, angle,axis);
-  mat4xvec4(rotatedPoint, rotationMatrix, translatedPoint);
+  mat4Txvec4(rotatedPoint, rotationMatrix, translatedPoint);
 
   vec3 result;
   result.x = rotatedPoint[0] + pivot.x;
@@ -158,32 +167,32 @@ void lookAt(
 
 void point3DProjection(
     const vec3 points3D[],
-    vec2 **points2D,
+    vec2 points2D[],
     int numPoints,
     const float projMat[4][4],
     const float viewMatrix[4][4],
     const float viewWidth,
     const float viewHeight
     ){
-  vec2 *p2d = malloc(numPoints*sizeof(vec2));
   for(int i=0;i<numPoints;i++){
     //convert 3d point to 3f homogenous coordinate
     float pointHomo[4] = {points3D[i].x, points3D[i].y, points3D[i].z, 1.0f};
     //camera transformation
     float cameraPoint[4];
-    mat4xvec4(cameraPoint, viewMatrix, pointHomo);
-    if(i == 0)
-      printf("Camera Point: %f %f %f %f\n",cameraPoint[0],cameraPoint[1],cameraPoint[2],cameraPoint[3]);
+    mat4Txvec4(cameraPoint, viewMatrix, pointHomo);
     //apply ProjectionMatrix
     float clipSpacePoint[4];
-    mat4xvec4(clipSpacePoint,projMat,cameraPoint);
+    mat4Txvec4(clipSpacePoint,projMat,cameraPoint);
+    if(i == 0)
+      printf("Camera Point: %f %f %f %f\n",clipSpacePoint[0],clipSpacePoint[1],clipSpacePoint[2],clipSpacePoint[3]);
 
     //get normalized device coords (NDC)
     float ndcX = clipSpacePoint[0]/clipSpacePoint[3];
     float ndcY = clipSpacePoint[1]/clipSpacePoint[3];
+    if(i == 0)
+      printf("Camera Point: %f %f\n",ndcX,ndcY);
 
-    p2d[i].x = (ndcX * 0.5f + 0.5f) * viewWidth;
-    p2d[i].y = (1.0f - (ndcY * 0.5f + 0.5f)) * viewHeight;
+    points2D[i].x = (ndcX * 0.5f + 0.5f) * viewWidth;
+    points2D[i].y = (1.0f - (ndcY * 0.5f + 0.5f)) * viewHeight;
   }
-  *points2D = p2d;
 }
