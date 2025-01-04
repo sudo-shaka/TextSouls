@@ -38,4 +38,6 @@ void point3DProjection(
     float viewWidth,
     float viewHeight);
 
+void linearInterolation(float* result, const float*a, const float* b, float t, int count);
+void sphericalLinInterp(float* result, const float* q1, const float* q2, float t);
 #endif

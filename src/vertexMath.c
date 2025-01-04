@@ -42,6 +42,28 @@ void getProjectionMatrix(float projMat[4][4], float fov, float aspectR, float ne
   projMat[3][2] = (2.0f*farPlane*nearPlane)/(nearPlane-farPlane);
 }
 
+void linearInterolation(float* result, const float*a, const float* b, float t, int count){
+  for(int i = 0;i<count;i++){
+    result[i] = a[i] + t * (b[i] - a[i]);
+  }
+}
+
+void sphericalLinInterp(float* result, const float* q1, const float* q2, float t){
+  float dot = q1[0] * q2[0] + q1[1] * q2[1] + q1[2] * q2[2] + q1[3] * q2[3];
+  if (dot < 0.0f) {
+      dot = -dot;
+      q2 = (float[]){ -q2[0], -q2[1], -q2[2], -q2[3] };
+  }
+  float theta = acosf(dot);
+  float sin_theta = sinf(theta);
+  float weight1 = sinf((1.0f - t) * theta) / sin_theta;
+  float weight2 = sinf(t * theta) / sin_theta;
+
+  for (int i = 0; i < 4; i++) {
+      result[i] = weight1 * q1[i] + weight2 * q2[i];
+  }
+}
+
 vec3 add3(const vec3 a,const vec3 b){
   vec3 sum;
   sum.x = a.x+b.x;
