@@ -1,2 +1,11 @@
+#ifndef __SCREEN__
+#define __SCREEN__
+
+#include<ncurses.h>
+
+void initScreen();
+void closeScreen();
 void clearScreen();
-void printOutput(char** output, int height, int width);
+void  renderOnTerm(char **input,int height,int width);
+
+#endif

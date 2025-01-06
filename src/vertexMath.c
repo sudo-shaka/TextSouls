@@ -10,7 +10,42 @@ vec3 ftovec3(const float x,const float y, const float z){
   return vec;
 }
 
-void mat4Txvec4(float result[4], const float mat[4][4], const float vec[4]){
+vec3 add3(const vec3 a,const vec3 b){
+  vec3 sum;
+  sum.x = a.x+b.x;
+  sum.y = a.y+b.y;
+  sum.z = a.z+b.z;
+  return sum;
+}
+
+float dot3(const vec3 a,const vec3 b){
+  return (a.x*b.x) + (a.y*b.y) + (a.z*b.z);
+}
+
+float magnitude(vec3 v){
+  return sqrt(dot3(v,v));
+}
+
+vec3 normalize(const vec3 point3D){
+  vec3 norm = point3D;
+  float length = magnitude(point3D);
+  if(length != 0.0f){
+    norm.x = point3D.x/length;
+    norm.y = point3D.y/length;
+    norm.z = point3D.z/length;
+  }
+  return norm;
+}
+
+vec3 cross3(const vec3 a, const vec3 b){
+  vec3 result;
+  result.x = a.y * b.z - a.z * b.y;
+  result.y = a.z * b.x - a.x * b.z;
+  result.z = a.x * b.y - a.y * b.x;
+  return result;
+}
+
+void mat4xvec4(float result[4], const float mat[4][4], const float vec[4]){
     for (int i = 0; i < 4; ++i) {
         result[i] = 0.0f;
         for (int j = 0; j < 4; ++j) {
@@ -19,7 +54,7 @@ void mat4Txvec4(float result[4], const float mat[4][4], const float vec[4]){
     }
 }
 
-void mat4xvec4(float result[4], const float mat[4][4], const float vec[4]){
+void mat4Txvec4(float result[4], const float mat[4][4], const float vec[4]){
     for (int i = 0; i < 4; ++i) {
         result[i] = 0.0f;
         for (int j = 0; j < 4; ++j) {
@@ -62,37 +97,6 @@ void sphericalLinInterp(float* result, const float* q1, const float* q2, float t
   for (int i = 0; i < 4; i++) {
       result[i] = weight1 * q1[i] + weight2 * q2[i];
   }
-}
-
-vec3 add3(const vec3 a,const vec3 b){
-  vec3 sum;
-  sum.x = a.x+b.x;
-  sum.y = a.y+b.y;
-  sum.z = a.z+b.z;
-  return sum;
-}
-
-float dot3(const vec3 a,const vec3 b){
-  return (a.x*b.x) + (a.y*b.y) + (a.z*b.z);
-}
-
-vec3 normalize(const vec3 point3D){
-  vec3 norm = point3D;
-  float length = sqrt(dot3(point3D,point3D));
-  if(length != 0.0f){
-    norm.x = point3D.x/length;
-    norm.y = point3D.y/length;
-    norm.z = point3D.z/length;
-  }
-  return norm;
-}
-
-vec3 cross3(const vec3 a, const vec3 b){
-  vec3 result;
-  result.x = a.y * b.z - a.z * b.y;
-  result.y = a.z * b.x - a.x * b.z;
-  result.z = a.x * b.y - a.y * b.x;
-  return result;
 }
 
 void rotateMat(float rotationMatrix[4][4],const float angle,const vec3 axis){
@@ -141,7 +145,7 @@ vec3 rotateAround(const vec3 point, const vec3 pivot,const float angle, const ve
   float translatedPoint[4] =  {transP.x, transP.y, transP.z, 0.0f};
   float rotationMatrix[4][4], rotatedPoint[4];
   rotateMat(rotationMatrix, angle,axis);
-  mat4Txvec4(rotatedPoint, rotationMatrix, translatedPoint);
+  mat4xvec4(rotatedPoint, rotationMatrix, translatedPoint);
 
   vec3 result;
   result.x = rotatedPoint[0] + pivot.x;
@@ -197,10 +201,10 @@ void point3DProjection(
     float pointHomo[4] = {points3D[i].x, points3D[i].y, points3D[i].z, 1.0f};
     //camera transformation
     float cameraPoint[4];
-    mat4Txvec4(cameraPoint, viewMatrix, pointHomo);
+    mat4xvec4(cameraPoint, viewMatrix, pointHomo);
     //apply ProjectionMatrix
     float clipSpacePoint[4];
-    mat4Txvec4(clipSpacePoint,projMat,cameraPoint);
+    mat4xvec4(clipSpacePoint,projMat,cameraPoint);
     //get normalized device coords (NDC)
     float ndcX = clipSpacePoint[0]/clipSpacePoint[3];
     float ndcY = clipSpacePoint[1]/clipSpacePoint[3];
@@ -209,4 +213,64 @@ void point3DProjection(
     points2D[i].x = (ndcX * 0.5f + 0.5f) * viewWidth;
     points2D[i].y = (1.0f - (ndcY * 0.5f + 0.5f)) * viewHeight;
   }
+}
+
+vec3 calcFaceNormal(vec3 v1,vec3 v2, vec3 v3){
+  vec3 edge1 = {v2.x - v1.x, v2.y - v1.y, v2.z - v1.z};
+  vec3 edge2 = {v3.x - v1.x, v3.y - v1.y, v3.z - v1.z};
+
+  // Compute the cross product of the edges
+  vec3 normal = cross3(edge1, edge2);
+
+  // Normalize the normal vector
+  return normalize(normal);
+}
+
+void identityMat4(float mat[4][4]){
+  for(int i=0;i<4;i++){
+    for(int j=0;j<4;j++){
+      mat[i][j] = 0.0f;
+    }
+  }
+  for(int i=0;i<4;i++){
+    mat[i][i] = 1.0f;
+  }
+}
+void translate4(float mat[4][4], vec3 vec){
+  identityMat4(mat);
+  mat[0][3] = vec.x;
+  mat[1][3] = vec.y;
+  mat[2][3] = vec.z;
+}
+void mat4xmat4(float result[4][4], const float a[4][4],const float b[4][4]){
+  for(int i=0;i<4;i++){
+    for(int j=0;j<4;j++){
+      result[i][j] = 0;
+      for(int k=0; k<4;k++){
+        result[i][j] = a[i][k] * b[k][j];
+      }
+    }
+  }
+}
+void scale4(float mat[4][4],vec3 vec){
+  mat[0][0] = vec.x;
+  mat[1][1] = vec.y;
+  mat[2][2] = vec.z;
+}
+
+float calcLumin(const vec3 lightSource,const vec3 facePoint,vec3 faceNormal){
+  vec3 lightDir = {
+      lightSource.x - facePoint.x,
+      lightSource.y - facePoint.y,
+      lightSource.z - facePoint.z};
+  lightDir = normalize(lightDir);
+  faceNormal = normalize(faceNormal);
+  float lumin = dot3(faceNormal,lightDir);
+  return fmaxf(lumin,0.0f);
+}
+char luminToChar(float l){
+  l *= 11;
+  int idx = (int)l;
+  char val = ".,-~:;=!*#$@"[idx];
+  return val;
 }

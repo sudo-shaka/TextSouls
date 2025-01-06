@@ -6,48 +6,90 @@
 object parseObjFromFile(const char *filename){
 
   object newO;
+  newO.isRendered = 0;
 
   FILE *file = fopen(filename,"r");
   if(!file){
-    newO.isRendered = 0;
     return newO;
   }
 
   int vCount = 0, fCount=0;
-  vec3 *tmpVerts = malloc(20000*sizeof(vec3));
-  face *tmpFace = malloc(20000*sizeof(face));
-
-  char line[128];
+  int maxSize = 4096;
+  vec3 *tmpVerts = malloc(maxSize*sizeof(vec3));
+  face *tmpFace = malloc(maxSize*sizeof(face));
+  char *displayChars = malloc(maxSize*sizeof(char));
+  
+  char line[256];
   while (fgets(line,sizeof(line),file)){
-    if(vCount > 1024 || fCount > 1024){
-      newO.isRendered = 0;
-      break;
+    if(vCount >maxSize || fCount > maxSize){
+      return newO;
     }
     if(line[0]  == 'v' && line[1] == ' '){
       vec3 v;
       sscanf(line,"v %f %f %f",&v.x,&v.y,&v.z);
       tmpVerts[vCount++] = v;
+      displayChars[vCount] = '.';
     }
     else if (line[0] == 'f' && line[1] == ' '){
       face f;
-      sscanf(line,"f %d %d %d", &f.v1,&f.v2,&f.v3);
+      f.vertCount = 0;
+      int nVerts = sscanf(line,"f %d//%d %d//%d %d//%d %d//%d", 
+          &f.vertIdx[0],
+          &f.normalIdx[0],
+          &f.vertIdx[1],
+          &f.normalIdx[1],
+          &f.vertIdx[2],
+          &f.normalIdx[2],
+          &f.vertIdx[3],
+          &f.normalIdx[3]);
+      if(nVerts == 8){
+        f.vertCount = 4;
+      }
+      else if(nVerts == 6){
+        f.vertCount = 3;
+        f.vertIdx[3] = -2;
+        f.normalIdx[3] = -2;
+      }
+      else{
+        printf("Cant parse string\n");
+      }
       tmpFace[fCount++]=f;
     }
   }
 
   fclose(file);
-
-  newO.verts = realloc(tmpVerts, vCount *sizeof(vec3));
-  newO.faces = realloc(tmpFace, fCount*sizeof(face));
+  if(tmpVerts != NULL)
+    newO.verts = realloc(tmpVerts, vCount *sizeof(vec3));
+  if(tmpFace != NULL)
+    newO.faces = realloc(tmpFace, fCount*sizeof(face));
+  if(displayChars != NULL)
+    newO.displayChar = realloc(displayChars, vCount*sizeof(char));
   newO.nVerts = vCount;
   newO.nFaces = fCount;
+  newO.displayChar = displayChars;
   newO.isRendered = 1;
   return newO;
+}
+
+void updateDisplayChars(object o, vec3 lightSource){
+  vec3 Faceverts[3];
+  for(int fi=0;fi<o.nFaces;fi++){
+    Faceverts[0] = o.verts[o.faces[fi].vertIdx[0]];
+    Faceverts[1] = o.verts[o.faces[fi].vertIdx[1]];
+    Faceverts[2] = o.verts[o.faces[fi].vertIdx[2]];
+    vec3 faceNormal = calcFaceNormal(Faceverts[0],Faceverts[1],Faceverts[2]);
+    float lumen =  calcLumin(lightSource,Faceverts[0],faceNormal);
+    char lChar = luminToChar(lumen);
+    for(int vi=0;vi<o.faces[fi].vertCount;vi++){
+      o.displayChar[o.faces[fi].vertIdx[vi]] = lChar;
+    }
+  }
 }
 
 void freeObject(object o){
   free(o.faces);
   free(o.verts);
+  free(o.displayChar);
 }
 
 vec3 getCOM(const object o){

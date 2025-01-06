@@ -1,6 +1,7 @@
 
 #include "cgltf.h"
 #include "vertexMath.h"
+#include <stdlib.h>
 #include <stdio.h>
   
 void processGltf(const char *filename, cgltf_data* data){
@@ -71,3 +72,5 @@ void applyAnimation(cgltf_data* data, float current_time){
 void animate(cgltf_data* data, float time){
   applyAnimation(data, time);
 }
+
+
