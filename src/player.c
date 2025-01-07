@@ -104,50 +104,6 @@ int getNumVerts(cgltf_data* data){
   return totalVerts;
 }
 
-void printVertsFromGlb(cgltf_data* data){
-    for (cgltf_size mesh_index = 0; mesh_index < data->meshes_count; ++mesh_index) {
-        cgltf_mesh* mesh = &data->meshes[mesh_index];
-        printf("Mesh %zu: %s\n", mesh_index, mesh->name ? mesh->name : "Unnamed");
-
-        for (cgltf_size prim_index = 0; prim_index < mesh->primitives_count; ++prim_index) {
-            cgltf_primitive* prim = &mesh->primitives[prim_index];
-            printf("  Primitive %zu:\n", prim_index);
-
-            // Find the POSITION attribute
-            for (cgltf_size attr_index = 0; attr_index < prim->attributes_count; ++attr_index) {
-                cgltf_attribute* attr = &prim->attributes[attr_index];
-                if (attr->type == cgltf_attribute_type_position) {
-                    printf("    Found POSITION attribute.\n");
-
-                    cgltf_accessor* accessor = attr->data;
-                    if (!accessor || !accessor->buffer_view || !accessor->buffer_view->buffer) {
-                        fprintf(stderr, "    Invalid POSITION accessor.\n");
-                        continue;
-                    }
-
-                    // Get buffer data
-                    cgltf_size vertex_count = accessor->count;
-                    printf("    Number of vertices: %zu\n", vertex_count);
-
-                    const uint8_t* buffer = (const uint8_t*)accessor->buffer_view->buffer->data;
-                    if (!buffer) {
-                        fprintf(stderr, "    Buffer data is NULL.\n");
-                        continue;
-                    }
-
-                    buffer += accessor->buffer_view->offset + accessor->offset;
-                    for (cgltf_size i = 0; i < vertex_count; ++i) {
-                        float vertex[3] = {0};
-                        cgltf_accessor_read_float(accessor, i, vertex, 3);
-
-                        printf("      Vertex %zu: (%f, %f, %f)\n", i, vertex[0], vertex[1], vertex[2]);
-                    }
-                }
-            }
-        }
-    }
-}
-
 void getPlayerVerts(cgltf_data* data,vec3* Pos){
   int currentVert = 0;
   for (cgltf_size mesh_index = 0; mesh_index < data->meshes_count; ++mesh_index) {

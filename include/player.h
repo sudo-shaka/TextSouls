@@ -9,4 +9,3 @@ void clearPlayerData(cgltf_data* data);
 void getPlayerVerts(cgltf_data* data,vec3* Pos);
 int getNumVerts(cgltf_data* data);
 vec3 getLtfCOM(cgltf_data* data);
-void printVertsFromGlb(cgltf_data* data);
