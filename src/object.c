@@ -92,7 +92,7 @@ void freeObject(object o){
   free(o.displayChar);
 }
 
-vec3 getCOM(const object o){
+vec3 getObjCOM(const object o){
   vec3 com;
   com.x = com.y = com.z = 0.0f;
   for(int i=0;i<o.nVerts;i++){

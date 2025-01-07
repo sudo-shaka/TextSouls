@@ -14,7 +14,7 @@ typedef struct object{
 
 #include "vertexMath.h"
 object parseObjFromFile(const char *filename);
-vec3 getCOM(object o);
+vec3 getObjCOM(object o);
 void freeObject(object o);
 void updateDisplayChars(object o,const vec3 lightSource);
 

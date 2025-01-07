@@ -1,17 +1,23 @@
-
 #include "cgltf.h"
 #include "vertexMath.h"
 #include <stdlib.h>
 #include <stdio.h>
   
-void processGltf(const char *filename, cgltf_data* data){
-  cgltf_options options = {0};
-  data = NULL;
-  cgltf_result result = cgltf_parse_file(&options, filename, &data);
-  
-  if (result != cgltf_result_success){
-    fprintf(stderr,"Error opening .gltf");
+cgltf_data* processGltf(const char *filename){
+  cgltf_options options ={0};
+  cgltf_data* data=NULL;
+  if (cgltf_parse_file(&options, filename, &data) != cgltf_result_success) {
+      fprintf(stderr, "Failed to parse GLB file.\n");
+      return NULL;
   }
+
+  // Load buffers
+  if (cgltf_load_buffers(&options, data, "filename") != cgltf_result_success) {
+      fprintf(stderr, "Failed to load buffers from GLB.\n");
+      cgltf_free(data);
+      return NULL;
+  }
+  return data;
 }
 
 void getInterpolatedValue(cgltf_animation_sampler* sampler, float current_time, float* result, int count){
@@ -73,4 +79,130 @@ void animate(cgltf_data* data, float time){
   applyAnimation(data, time);
 }
 
+void clearPlayerData(cgltf_data* data){
+  cgltf_free(data);
+}
 
+int getNumVerts(cgltf_data* data){
+  int totalVerts=0;
+  if(data == NULL){
+    fprintf(stderr,"error getting vert data");
+    return 0;
+  }
+  for (cgltf_size mesh_index = 0; mesh_index < data->meshes_count; ++mesh_index) {
+    cgltf_mesh* mesh = &data->meshes[mesh_index];
+    for (cgltf_size prim_index = 0; prim_index < mesh->primitives_count; ++prim_index) {
+      cgltf_primitive* prim = &mesh->primitives[prim_index];
+      for (cgltf_size attr_index = 0; attr_index < prim->attributes_count; ++attr_index) {
+        cgltf_attribute* attr = &prim->attributes[attr_index];
+        if (attr->type == cgltf_attribute_type_position) {
+            totalVerts += attr->data->count;
+        }
+      }
+    }
+  }
+  return totalVerts;
+}
+
+void printVertsFromGlb(cgltf_data* data){
+    for (cgltf_size mesh_index = 0; mesh_index < data->meshes_count; ++mesh_index) {
+        cgltf_mesh* mesh = &data->meshes[mesh_index];
+        printf("Mesh %zu: %s\n", mesh_index, mesh->name ? mesh->name : "Unnamed");
+
+        for (cgltf_size prim_index = 0; prim_index < mesh->primitives_count; ++prim_index) {
+            cgltf_primitive* prim = &mesh->primitives[prim_index];
+            printf("  Primitive %zu:\n", prim_index);
+
+            // Find the POSITION attribute
+            for (cgltf_size attr_index = 0; attr_index < prim->attributes_count; ++attr_index) {
+                cgltf_attribute* attr = &prim->attributes[attr_index];
+                if (attr->type == cgltf_attribute_type_position) {
+                    printf("    Found POSITION attribute.\n");
+
+                    cgltf_accessor* accessor = attr->data;
+                    if (!accessor || !accessor->buffer_view || !accessor->buffer_view->buffer) {
+                        fprintf(stderr, "    Invalid POSITION accessor.\n");
+                        continue;
+                    }
+
+                    // Get buffer data
+                    cgltf_size vertex_count = accessor->count;
+                    printf("    Number of vertices: %zu\n", vertex_count);
+
+                    const uint8_t* buffer = (const uint8_t*)accessor->buffer_view->buffer->data;
+                    if (!buffer) {
+                        fprintf(stderr, "    Buffer data is NULL.\n");
+                        continue;
+                    }
+
+                    buffer += accessor->buffer_view->offset + accessor->offset;
+                    for (cgltf_size i = 0; i < vertex_count; ++i) {
+                        float vertex[3] = {0};
+                        cgltf_accessor_read_float(accessor, i, vertex, 3);
+
+                        printf("      Vertex %zu: (%f, %f, %f)\n", i, vertex[0], vertex[1], vertex[2]);
+                    }
+                }
+            }
+        }
+    }
+}
+
+void getPlayerVerts(cgltf_data* data,vec3* Pos){
+  int currentVert = 0;
+  for (cgltf_size mesh_index = 0; mesh_index < data->meshes_count; ++mesh_index) {
+    cgltf_mesh* mesh = &data->meshes[mesh_index];
+    for (cgltf_size prim_index = 0; prim_index < mesh->primitives_count; ++prim_index) {
+      cgltf_primitive* prim = &mesh->primitives[prim_index];
+      for (cgltf_size attr_index = 0; attr_index < prim->attributes_count; ++attr_index) {
+        cgltf_attribute* attr = &prim->attributes[attr_index];
+        if (attr->type == cgltf_attribute_type_position) {
+          cgltf_accessor* accessor = attr->data;
+          cgltf_buffer_view* buffer_view = accessor->buffer_view;
+          const uint8_t* buffer_data = (const uint8_t*)buffer_view->buffer->data;
+          const uint8_t* vertex_data_ptr = buffer_data + buffer_view->offset + accessor->offset;
+
+          for (cgltf_size i = 0; i < accessor->count; ++i) {
+              const float* position = (const float*)(vertex_data_ptr + i * accessor->stride);
+              vec3 currPos = {position[0],position[1],position[2]};
+              Pos[currentVert] = currPos;
+              currentVert++;
+          }
+        }
+      }
+    }
+  }
+}
+
+vec3 getLtfCOM(cgltf_data* data){
+  vec3 COM = {0.0f};
+  int currentVert = 0;
+  for (cgltf_size mesh_index = 0; mesh_index < data->meshes_count; ++mesh_index) {
+    cgltf_mesh* mesh = &data->meshes[mesh_index];
+    for (cgltf_size prim_index = 0; prim_index < mesh->primitives_count; ++prim_index) {
+      cgltf_primitive* prim = &mesh->primitives[prim_index];
+      for (cgltf_size attr_index = 0; attr_index < prim->attributes_count; ++attr_index) {
+        cgltf_attribute* attr = &prim->attributes[attr_index];
+        if (attr->type == cgltf_attribute_type_position) {
+          cgltf_accessor* accessor = attr->data;
+          cgltf_buffer_view* buffer_view = accessor->buffer_view;
+          const uint8_t* buffer_data = (const uint8_t*)buffer_view->buffer->data;
+          const uint8_t* vertex_data_ptr = buffer_data + buffer_view->offset + accessor->offset;
+
+          for (cgltf_size i = 0; i < accessor->count; ++i) {
+              const float* position = (const float*)(vertex_data_ptr + i * accessor->stride);
+              vec3 currPos = {position[0],position[1],position[2]};
+              COM.x += currPos.x;
+              COM.y += currPos.y;
+              COM.z += currPos.z;
+              currentVert++;
+          }
+        }
+      }
+    }
+    COM.x /= (float)currentVert;
+    COM.y /= (float)currentVert;
+    COM.z /= (float)currentVert;
+  }
+  return COM;
+}
