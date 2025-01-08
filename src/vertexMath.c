@@ -274,3 +274,22 @@ char luminToChar(float l){
   char val = ".,-~:;=!*#$@"[idx];
   return val;
 }
+
+int isFaceFacingPoint(vec3 faceNormal,vec3 cameraPos, vec3 pointOnFace){
+  vec3 viewVector = sub3(cameraPos, pointOnFace);
+  float dot = dot3(faceNormal,viewVector);
+  return dot > 0;
+}
+
+vec3 getCOM(const vec3* verts, const int numVerts){
+  vec3 com = {0.0f,0.0f,0.0f};
+  for(int i=0;i<numVerts;i++){
+    com.x += verts[i].x;
+    com.y += verts[i].y;
+    com.z += verts[i].z;
+  }
+  com.x /= (float)numVerts;
+  com.y /= (float)numVerts;
+  com.z /= (float)numVerts;
+  return com;
+}
