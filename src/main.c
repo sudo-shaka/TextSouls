@@ -3,196 +3,150 @@
 #include "player.h"
 #include "object.h"
 #include "vertexMath.h"
-#include "screen.h"
 #include <stdio.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
 #include <ncurses.h>
 
+void generate_plane(const float xmin, const float xmax,const float ymin,const float ymax, vec3 verts[2500]){
+  int resolution = 50;
+  float x_step = (xmax - xmin) / resolution;
+  float y_step = (ymax - ymin) / resolution;
+  int count = 0;
+
+  for(float y=ymin; y < ymax; y+=y_step){
+    for(float x=xmin; x < xmax; x+= x_step){
+      vec3 p = {x,y,0.0f};
+      if(count < 2500){
+        verts[count] = p;
+      }
+      count++;
+    }
+  }
+}
+
+
 int playerToScreen(){
   struct winsize w;
   ioctl(STDOUT_FILENO,TIOCGWINSZ, &w);
 
-  float height = (float)w.ws_col;
-  int y_w = w.ws_col;
-  float width = (float)w.ws_row;
-  int x_w = w.ws_row;
+  float height = (float)w.ws_row;
+  float width = (float)w.ws_col;
 
-  cgltf_data* data = processGltf("resources/player3.glb");
+  //making floor
+  vec3 floorVerts[2500];
+  generate_plane(-5.0f,5.0f,-5.0f,5.0f,floorVerts);
+  vec2 floorVerts2D[2500];
 
-  int nVerts = getNumVerts(data);
-  vec3* verts = malloc(nVerts * sizeof(vec3));
-
-  char **output = malloc(x_w * sizeof(char *));
-  for(int i=0;i<x_w;i++){
-    output[i] = malloc(y_w * sizeof(char));
+  object obj = parseObjFromFile("resources/CommonTree_2.obj");
+  vec3 objCOM = getObjCOM(obj);
+  for(int vi=0;vi<obj.nVerts;vi++){
+    obj.verts[vi].x -= 3;
   }
+  vec2 obj2D[obj.nVerts];
+
+  //cgltf_data* data = processGltf("resources/player3.glb");
+  cgltf_data* data = processGltf("/home/shaka/Code/C/TextSouls/resources/example.gltf");
+  //cgltf_data* data = processGltf("/home/shaka/Code/C/TextSouls/resources/player3.glb");
+  player p = initPlayer(100,100,data);
+  p.faces = malloc(p.numFaces * sizeof(face));
+  extract_face_indices(p.data,p.faces);
+  int nVerts = getNumVerts(p.data);
+  vec3* verts = malloc(nVerts * sizeof(vec3));
+  p.displayChar = malloc(nVerts * sizeof(char));
+
   float projectMat[4][4];
   float viewMatrix[4][4];
 
-  //vec3 lightS = {0.0f,-3.0f,-5.0f};
-  //vec3 axis = {1.0f,0.0f,0.0f};
-  //float angle = 0.01f;
+  vec3 lightS = {0.0f,-3.0f,2.0f};
   vec3 upDirection = {0.0f,0.0f,-1.0f};
   vec2 points2D[nVerts];
-  getProjectionMatrix(projectMat,90.0f,width/height,0.1f,1000.0f);
-  vec3 cameraPosition = {0.0f,5.0f,2.0f};
+  getProjectionMatrix(projectMat,90.0f,height/width,0.1f,1000.0f);
+  vec3 cameraPosition = {0.0f,-3.0f,0.5f};
+  vec3 lookAtPosition = {0.0f,0.0f,0.0f};
   initscr();
   noecho();
   cbreak();
   nodelay(stdscr,TRUE);
   curs_set(0);
-  
-  //for(int i=0;i<1;i++){
+
+  float ti = 0.0;
   while(true){
-    cgltf_animation* a = findAnimationName(data,"Idol");
-    applyAnimation(data, a, (float)10);
-    extract_animated_vertex_positions(data, verts);
-    for(int x=0;x<x_w;x++){
-      for(int y=0; y<y_w; y++){
-        output[x][y] = ' ';
-      }
+    //cgltf_animation* a = findAnimationName(data,"Idol");
+    cgltf_animation *a = &data->animations[0];
+    if(a == NULL){
+      closePlayer(p);
+      freeObject(obj);
+      free(verts);
+      endwin();
+      printf("Animation is null: Exiting...\n");
+      return 1;
     }
-    vec3 lookAtPosition = getCOM(verts,nVerts);
-    lookAt(cameraPosition, lookAtPosition, upDirection, viewMatrix);
+    ti += 0.01f; float totalTime = calculate_total_animation_time(a);
+    if(ti > totalTime){ti = 0.0f;}
+    applyAnimation(p.data, a, ti);
+    extract_animated_vertex_positions(p.data, verts);
+    getPlayerVerts(p.data,verts);
+    updateGltfDisplayChar(p,verts,lightS);
+    updateDisplayChars(obj,lightS);
+    //lookAt(cameraPosition, p.position, upDirection, viewMatrix);
+    //lookAt(cameraPosition, lookAtPosition, upDirection, viewMatrix);
+    lookAt(cameraPosition, objCOM, upDirection, viewMatrix);
     point3DProjection(verts,points2D,nVerts, projectMat, viewMatrix, width, height);
+    point3DProjection(obj.verts,obj2D,obj.nVerts, projectMat, viewMatrix, width, height);
+    lookAt(cameraPosition, lookAtPosition, upDirection, viewMatrix);
+    point3DProjection(floorVerts,floorVerts2D,2500, projectMat, viewMatrix, width, height);
+    erase();
     for(int vi=0;vi<nVerts; vi++){
       int x = (int)points2D[vi].x;
       int y = (int)points2D[vi].y;
-      if(x >= x_w || y >= y_w || x < 0 || y < 0){
-        continue;
-      }
-      output[x][y] = '@';
+      char c = p.displayChar[vi];
+      mvaddch(x,y,c);
     }
+    for(int vi=0;vi<obj.nVerts; vi++){
+      int x = (int)obj2D[vi].x;
+      int y = (int)obj2D[vi].y;
+      mvaddch(x,y,obj.displayChar[vi]);
+    }
+
+    /*for(int vi=0;vi<2500-1;vi++){
+      int x = (int)floorVerts2D[vi].x;
+      int y = (int)floorVerts2D[vi].y;
+      mvaddch(x,y,'.');
+    }*/
+    mvprintw(1,0,"%.2f",cameraPosition.x);
+    mvprintw(2,0,"%.2f",cameraPosition.y);
+    mvprintw(3,0,"%.2f",cameraPosition.z);
     int ch = getch();
     if(ch == 'a'){
-      vec3 a = {0.0f,0.0f,0.0f};
-      a.y-=1.0f;
-      cameraPosition = rotateAround(cameraPosition,lookAtPosition,0.1f,a);
+      cameraPosition.x -= 0.1f;
     }
     if(ch == 'd'){
-      vec3 a = {0.0f,0.0f,0.0f};
-      a.y+=1.0f;
-      cameraPosition = rotateAround(cameraPosition,lookAtPosition,0.1f,a);
+     cameraPosition.x += 0.1f;
     }
     if(ch == 'w'){
-      vec3 a = {0.0f,0.0f,0.0f};
-      a.x+=1.0f;
-      cameraPosition = rotateAround(cameraPosition,lookAtPosition,0.1f,a);
+     cameraPosition.y += 0.1f;
     }
     if(ch == 's'){
-      vec3 a = {0.0f,0.0f,0.0f};
-      a.x-=1.0f;
-      cameraPosition = rotateAround(cameraPosition,lookAtPosition,0.1f,a);
+     cameraPosition.y -= 0.1f;
+    }
+    if(ch == 'z'){
+      cameraPosition.z -= 0.1f;
+    }
+    if(ch == 'x'){
+      cameraPosition.z += 0.1f;
     }
     if(ch == 'q'){
       break;
     }
-    renderOnTerm(output,y_w,x_w);
-    usleep(1000);
-  }
-  for(int i=0;i<x_w;i++){
-    free(output[i]);
+    usleep(5000);
   }
   endwin();
+  closePlayer(p);
   free(verts);
-  free(output);
-  return 0;
-}
-
-int objToScreen(){
-  struct winsize w;
-  ioctl(STDOUT_FILENO,TIOCGWINSZ, &w);
-
-  float height = (float)w.ws_col;
-  int y_w = w.ws_col;
-  float width = (float)w.ws_row;
-  int x_w = w.ws_row;
-
-  object testObj;
-  testObj = parseObjFromFile("resources/cube.obj");
-  if(!testObj.isRendered){
-    printf("unable to import obj\n");
-    return 0;
-  }
-
-  char **output = malloc(x_w * sizeof(char *));
-  for(int i=0;i<x_w;i++){
-    output[i] = malloc(y_w * sizeof(char));
-  }
-  float projectMat[4][4];
-  float viewMatrix[4][4];
-
-  vec3 cameraPosition = ftovec3(10.0f,0.0f,1.0f);
-  vec3 lightS = {0.0f,-3.0f,2.0f};
-  vec3 lookAtPosition = getObjCOM(testObj);
-  vec3 upDirection = {0.0f,0.0f,1.0f};
-  vec2 points2D[testObj.nVerts];
-  getProjectionMatrix(projectMat,90.0f,width/height,0.1f,1000.0f);
-  initscr();
-  timeout(1000);
-  noecho();
-  cbreak();
-  nodelay(stdscr,TRUE);
-  curs_set(0);
-
-  for(;;){
-    for(int x=0;x<x_w;x++){
-      for(int y=0; y<y_w; y++){
-        output[x][y] = ' ';
-      }
-    }
-    lookAt(cameraPosition, lookAtPosition, upDirection, viewMatrix);
-    point3DProjection(testObj.verts,points2D,testObj.nVerts, projectMat, viewMatrix, width, height);
-    updateDisplayChars(testObj, lightS);
-    for(int fi=0; fi<testObj.nFaces;fi++){
-      for(int vi=0;vi<testObj.faces[fi].vertCount; vi++){
-        int idx = testObj.faces[fi].vertIdx[vi];
-        int x = (int)points2D[idx].x;
-        int y = (int)points2D[idx].y;
-        if(x >= x_w || y >= y_w || x < 0 || y < 0){
-          continue;
-        }
-        output[x][y] = testObj.displayChar[idx];
-      }
-    }
-    renderOnTerm(output,y_w,x_w);
-    int ch = getch();
-    if(ch == 'a'){
-      vec3 a = {0.0f,0.0f,0.0f};
-      a.y-=1.0f;
-      cameraPosition = rotateAround(cameraPosition,lookAtPosition,0.1f,a);
-    }
-    if(ch == 'd'){
-      vec3 a = {0.0f,0.0f,0.0f};
-      a.y+=1.0f;
-      cameraPosition = rotateAround(cameraPosition,lookAtPosition,0.1f,a);
-    }
-    if(ch == 'w'){
-      vec3 a = {0.0f,0.0f,0.0f};
-      a.x+=1.0f;
-      cameraPosition = rotateAround(cameraPosition,lookAtPosition,0.1f,a);
-    }
-    if(ch == 's'){
-      vec3 a = {0.0f,0.0f,0.0f};
-      a.x-=1.0f;
-      cameraPosition = rotateAround(cameraPosition,lookAtPosition,0.1f,a);
-    }
-    if(ch == 'q'){
-      break;
-    }
-    usleep(500);
-  }
-  for(int i=0;i<x_w;i++){
-    free(output[i]);
-  }
-  free(output);
-  endwin();
-  freeObject(testObj);
   return 0;
 }
 
 int main(){
-  objToScreen();
   playerToScreen();
 }

@@ -10,6 +10,7 @@ typedef struct object{
   int nFaces;
   int nVerts;
   int isRendered;
+  vec3 lowestPos;
 } object;
 
 #include "vertexMath.h"

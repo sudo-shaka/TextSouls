@@ -45,6 +45,7 @@ vec3 cross3(const vec3 a, const vec3 b){
   return result;
 }
 
+
 void mat4xvec4(float result[4], const float mat[4][4], const float vec[4]){
     for (int i = 0; i < 4; ++i) {
         result[i] = 0.0f;
@@ -210,8 +211,8 @@ void point3DProjection(
     float ndcY = clipSpacePoint[1]/clipSpacePoint[3];
 
     //set the point values
-    points2D[i].x = (ndcX * 0.5f + 0.5f) * viewWidth;
-    points2D[i].y = (1.0f - (ndcY * 0.5f + 0.5f)) * viewHeight;
+    points2D[i].x = (ndcY * 0.5f + 0.5f) * viewHeight;
+    points2D[i].y = (1.0f - (ndcX * 0.5f + 0.5f)) * viewWidth;
   }
 }
 
@@ -252,6 +253,18 @@ void mat4xmat4(float result[4][4], const float a[4][4],const float b[4][4]){
     }
   }
 }
+
+void asVecmat4xmat4(float* result, const float* a, const float* b){
+    for (int row = 0; row < 4; ++row) {
+        for (int col = 0; col < 4; ++col) {
+            result[row * 4 + col] = a[row * 4 + 0] * b[0 * 4 + col] +
+                                    a[row * 4 + 1] * b[1 * 4 + col] +
+                                    a[row * 4 + 2] * b[2 * 4 + col] +
+                                    a[row * 4 + 3] * b[3 * 4 + col];
+        }
+    }
+}
+
 void scale4(float mat[4][4],vec3 vec){
   mat[0][0] = vec.x;
   mat[1][1] = vec.y;

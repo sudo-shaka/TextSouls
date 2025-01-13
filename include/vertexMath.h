@@ -50,6 +50,7 @@ void identityMat4(float mat[4][4]);
 void translate4(float mat[4][4], vec3 vec);
 void scale4(float mat[4][4],vec3 vec);
 void mat4xmat4(float result[4][4], const float a[4][4],const float b[4][4]);
+void asVecmat4xmat4(float* result, const float* a, const float* b);
 vec3 getCOM(const vec3*, const int numVerts);
 int isFaceFacingPoint(vec3 faceNormal,vec3 cameraPos, vec3 pointOnFace);
 #endif

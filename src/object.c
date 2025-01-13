@@ -20,13 +20,17 @@ object parseObjFromFile(const char *filename){
   char *displayChars = malloc(maxSize*sizeof(char));
   
   char line[256];
+  vec3 lowest_pos = {0.0f,0.0f,1e10f};
   while (fgets(line,sizeof(line),file)){
     if(vCount >maxSize || fCount > maxSize){
       return newO;
     }
     if(line[0]  == 'v' && line[1] == ' '){
       vec3 v;
-      sscanf(line,"v %f %f %f",&v.x,&v.y,&v.z);
+      sscanf(line,"v %f %f %f",&v.x,&v.z,&v.y);
+      if(v.z < lowest_pos.z){
+        lowest_pos = v;
+      }
       tmpVerts[vCount++] = v;
       displayChars[vCount] = '.';
     }
@@ -67,6 +71,7 @@ object parseObjFromFile(const char *filename){
   newO.nVerts = vCount;
   newO.nFaces = fCount;
   newO.displayChar = displayChars;
+  newO.lowestPos = lowest_pos;
   newO.isRendered = 1;
   return newO;
 }
