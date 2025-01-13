@@ -211,19 +211,15 @@ void point3DProjection(
     float ndcY = clipSpacePoint[1]/clipSpacePoint[3];
 
     //set the point values
-    points2D[i].x = (ndcY * 0.5f + 0.5f) * viewHeight;
-    points2D[i].y = (1.0f - (ndcX * 0.5f + 0.5f)) * viewWidth;
+    points2D[i].x = (ndcX * 0.5f + 0.5f) * viewWidth;
+    points2D[i].y = (1.0f - (ndcY * 0.5f + 0.5f)) * viewHeight;
   }
 }
 
 vec3 calcFaceNormal(vec3 v1,vec3 v2, vec3 v3){
   vec3 edge1 = {v2.x - v1.x, v2.y - v1.y, v2.z - v1.z};
   vec3 edge2 = {v3.x - v1.x, v3.y - v1.y, v3.z - v1.z};
-
-  // Compute the cross product of the edges
   vec3 normal = cross3(edge1, edge2);
-
-  // Normalize the normal vector
   return normalize(normal);
 }
 

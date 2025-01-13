@@ -66,7 +66,7 @@ int playerToScreen(){
   float viewMatrix[4][4];
 
   vec3 lightS = {0.0f,-3.0f,2.0f};
-  vec3 upDirection = {0.0f,0.0f,-1.0f};
+  vec3 upDirection = {0.0f,0.0f,1.0f};
   vec2 points2D[nVerts];
   getProjectionMatrix(projectMat,90.0f,height/width,0.1f,1000.0f);
   vec3 cameraPosition = {0.0f,-3.0f,0.5f};
@@ -98,35 +98,32 @@ int playerToScreen(){
     getPlayerVerts(p.data,verts);
     updateGltfDisplayChar(p,verts,lightS);
     updateDisplayChars(obj,lightS);
-    //lookAt(cameraPosition, p.position, upDirection, viewMatrix);
-    //lookAt(cameraPosition, lookAtPosition, upDirection, viewMatrix);
-    lookAt(cameraPosition, objCOM, upDirection, viewMatrix);
+    lookAt(cameraPosition, lookAtPosition, upDirection, viewMatrix);
     point3DProjection(verts,points2D,nVerts, projectMat, viewMatrix, width, height);
     point3DProjection(obj.verts,obj2D,obj.nVerts, projectMat, viewMatrix, width, height);
-    lookAt(cameraPosition, lookAtPosition, upDirection, viewMatrix);
     point3DProjection(floorVerts,floorVerts2D,2500, projectMat, viewMatrix, width, height);
     erase();
     for(int vi=0;vi<nVerts; vi++){
       int x = (int)points2D[vi].x;
       int y = (int)points2D[vi].y;
       char c = p.displayChar[vi];
-      mvaddch(x,y,c);
+      mvaddch(y,x,c);
     }
     for(int vi=0;vi<obj.nVerts; vi++){
       int x = (int)obj2D[vi].x;
       int y = (int)obj2D[vi].y;
-      mvaddch(x,y,obj.displayChar[vi]);
+      mvaddch(y,x,obj.displayChar[vi]);
     }
 
-    /*for(int vi=0;vi<2500-1;vi++){
+    for(int vi=0;vi<2500-1;vi++){
       int x = (int)floorVerts2D[vi].x;
       int y = (int)floorVerts2D[vi].y;
-      mvaddch(x,y,'.');
+      mvaddch(y,x,'.');
     }
-    mvprintw(1,0,"%.2f",cameraPosition.x);
-    mvprintw(2,0,"%.2f",cameraPosition.y);
-    mvprintw(3,0,"%.2f",cameraPosition.z);
-    */
+    mvprintw(10,0,"%.2f",cameraPosition.x);
+    mvprintw(11,0,"%.2f",cameraPosition.y);
+    mvprintw(12,0,"%.2f",cameraPosition.z);
+    
     float pEnd = (float)p.currEndurance/(float)p.maxEndurace;
     draw_bar(1,1,p.maxHeath,0.75f);
     draw_bar(1,2,p.maxEndurace,pEnd);
