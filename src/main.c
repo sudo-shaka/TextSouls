@@ -8,6 +8,13 @@
 #include <unistd.h>
 #include <ncurses.h>
 
+void draw_bar(int x, int y, int width, float percentage){
+  int fill = (int)(width * percentage);
+  for(int i=0;i<width;i++){
+    mvaddch(y,x+i,(i<fill) ? '#' : '.');
+  }
+}
+
 void generate_plane(const float xmin, const float xmax,const float ymin,const float ymax, vec3 verts[2500]){
   int resolution = 50;
   float x_step = (xmax - xmin) / resolution;
@@ -69,6 +76,8 @@ int playerToScreen(){
   cbreak();
   nodelay(stdscr,TRUE);
   curs_set(0);
+  MEVENT event;
+  mousemask(ALL_MOUSE_EVENTS | REPORT_MOUSE_POSITION, NULL);
 
   float ti = 0.0;
   while(true){
@@ -113,10 +122,14 @@ int playerToScreen(){
       int x = (int)floorVerts2D[vi].x;
       int y = (int)floorVerts2D[vi].y;
       mvaddch(x,y,'.');
-    }*/
+    }
     mvprintw(1,0,"%.2f",cameraPosition.x);
     mvprintw(2,0,"%.2f",cameraPosition.y);
     mvprintw(3,0,"%.2f",cameraPosition.z);
+    */
+    float pEnd = (float)p.currEndurance/(float)p.maxEndurace;
+    draw_bar(1,1,p.maxHeath,0.75f);
+    draw_bar(1,2,p.maxEndurace,pEnd);
     int ch = getch();
     if(ch == 'a'){
       cameraPosition.x -= 0.1f;
@@ -139,7 +152,17 @@ int playerToScreen(){
     if(ch == 'q'){
       break;
     }
+    if(ch == KEY_MOUSE){
+      if(getmouse(&event) == OK){
+        if(event.bstate & BUTTON1_CLICKED){
+          p.currEndurance -= 5;
+        } else if(event.bstate & BUTTON3_CLICKED){
+          p.currEndurance -= 10;
+        }
+      }
+    }
     usleep(5000);
+    refresh();
   }
   endwin();
   closePlayer(p);
