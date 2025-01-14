@@ -10,6 +10,7 @@ typedef struct player{
   float currEndurance;
   int numFaces;
   int numVerts;
+  int blocking;
   char* displayChar;
   vec3 position;
   cgltf_data* data;

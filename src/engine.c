@@ -12,8 +12,11 @@ void engineInit(engine* engine){
   noecho();
   cbreak();
   nodelay(stdscr,TRUE);
+  keypad(stdscr,TRUE);
+  raw();
   curs_set(0);
   mousemask(ALL_MOUSE_EVENTS | REPORT_MOUSE_POSITION, NULL);
+  mouseinterval(0);
   //cgltf_data* data = processGltf("/home/shaka/Code/C/TextSouls/resources/player3.glb");
   cgltf_data* playerData = processGltf("/home/shaka/Code/C/TextSouls/resources/example.gltf");
   engine->player = initPlayer(100,100,playerData);
@@ -38,24 +41,28 @@ void engineStop(engine* engine){
 }
 
 int processInput(engine* e){
-  //MEVENT event;
+  MEVENT event;
   int ch = getch();
   switch(ch){
     case 'a':
       e->cameraPosition.x -= 0.1f;
       e->player.position.x -= 0.1f;
+      e->player.currentAnimation = findAnimationName(e->player.data,"walk");
       break;
     case 'd':
       e->cameraPosition.x += 0.1f;
       e->player.position.x += 0.1f;
+      e->player.currentAnimation = findAnimationName(e->player.data,"walk");
       break;
     case 'w':
       e->cameraPosition.y += 0.1f;
       e->player.position.y += 0.1f;
+      e->player.currentAnimation = findAnimationName(e->player.data,"walk");
       break;
     case 's':
       e->cameraPosition.y -= 0.1f;
       e->player.position.y -= 0.1f;
+      e->player.currentAnimation = findAnimationName(e->player.data,"walk");
       break;
     case 'z':
       e->cameraPosition.z -= 0.1f;
@@ -66,20 +73,22 @@ int processInput(engine* e){
     case 'q':
       return 0;
     case ' ':
-      e->player.currEndurance -= 20;
-      e->player.currentAnimation = findAnimationName(e->player.data,"Attack");
+      e->player.currEndurance -= 15;
+      e->player.blocking = 1;
+      e->player.currentAnimation = findAnimationName(e->player.data,"Block");
       break;
 
-    //get mouse input for heavy and light attacks
-    /*case KEY_MOUSE:
+    case KEY_MOUSE:
       if(getmouse(&event) == OK){
-        if(event.bstate & BUTTON1_CLICKED){
-          e->player.currEndurance -= 5;
-        } else if(event.bstate & BUTTON3_CLICKED){
-          e->player.currEndurance -= 10;
+        if(event.bstate & BUTTON1_PRESSED){
+          e->player.currEndurance -= 20;
+          e->player.currentAnimation = findAnimationName(e->player.data,"Attack");
+        } else if(event.bstate & BUTTON3_PRESSED){
+          e->player.currEndurance -= 30;
+          e->player.currentAnimation = findAnimationName(e->player.data,"HeavyAttack");
         }
       }
-      break;*/
+      break;
     default:
       if(e->player.currEndurance < e->player.maxEndurance){e->player.currEndurance += 0.1;}
       e->player.currentAnimation = findAnimationName(e->player.data,"Idol");
