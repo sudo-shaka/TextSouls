@@ -17,21 +17,36 @@ void engineInit(engine* engine){
   curs_set(0);
   mousemask(ALL_MOUSE_EVENTS | REPORT_MOUSE_POSITION, NULL);
   mouseinterval(0);
-  //cgltf_data* data = processGltf("/home/shaka/Code/C/TextSouls/resources/player3.glb");
-  cgltf_data* playerData = processGltf("/home/shaka/Code/C/TextSouls/resources/example.gltf");
+  cgltf_data* playerData = processGltf("/home/shaka/Code/C/TextSouls/resources/player3.glb");
+  //cgltf_data* playerData = processGltf("/home/shaka/Code/C/TextSouls/resources/example.gltf");
   engine->player = initPlayer(100,100,playerData);
   engine->cameraPosition = (vec3){0.0f,-5.0f,0.5f};
 }
 void engineRun(engine* engine){
-  while(1){
+  while(engine->player.currentHeath > 0){
     int success = processInput(engine);
     if(!success){
       engineStop(engine);
-      break;
+      printf("You quit... Have you gone hollow?\n");
+      return;
     }
     render(engine);
     usleep(5000);
   }
+
+  //death animation if player health is < 0
+  engine->player.currentAnimation = findAnimationName(engine->player.data,"death");
+  float animationTime = calculate_total_animation_time(engine->player.currentAnimation);
+  for(float startTime = 0.0f; startTime < animationTime; startTime += 0.1f){
+    applyAnimation(engine->player.data,engine->player.currentAnimation,startTime);
+    updateGltfDisplayChar(engine->player,engine->player.verts,(vec3){0.0f,0.0f,3.0f});
+    render(engine);
+    usleep(50000);
+  }
+
+  //exiting the game
+  engineStop(engine);
+  printf("You died.\n");
 }
 
 void engineStop(engine* engine){
@@ -43,6 +58,11 @@ void engineStop(engine* engine){
 int processInput(engine* e){
   MEVENT event;
   int ch = getch();
+  //prevent player from moving if endurance is below 0
+  if(e->player.currEndurance < 0.0f){
+    e->player.currEndurance += 0.1f;
+    return 1;
+  }
   switch(ch){
     case 'a':
       e->cameraPosition.x -= 0.1f;
