@@ -15,8 +15,8 @@ void engineInit(engine* engine){
   curs_set(0);
   mousemask(ALL_MOUSE_EVENTS | REPORT_MOUSE_POSITION, NULL);
   //cgltf_data* data = processGltf("/home/shaka/Code/C/TextSouls/resources/player3.glb");
-  cgltf_data* data = processGltf("/home/shaka/Code/C/TextSouls/resources/example.gltf");
-  engine->player = initPlayer(100,100,data);
+  cgltf_data* playerData = processGltf("/home/shaka/Code/C/TextSouls/resources/example.gltf");
+  engine->player = initPlayer(100,100,playerData);
   engine->cameraPosition = (vec3){0.0f,-5.0f,0.5f};
 }
 void engineRun(engine* engine){
@@ -34,6 +34,7 @@ void engineRun(engine* engine){
 void engineStop(engine* engine){
   endwin();
   closePlayer(engine->player);
+  closePlayer(engine->boss);
 }
 
 int processInput(engine* e){
@@ -89,36 +90,53 @@ int processInput(engine* e){
 }
 
 void render(engine* engine){
+  //clear screen
   erase();
+  //set up projection matrix
   int maxy, maxx;
   getmaxyx(stdscr,maxy,maxx);
-
   float height = (float)maxy;
   float width = (float)maxx;
   float aspect = width/height;
   float FOV = 82.0f;
-  
   float projectMat[4][4];
   float viewMatrix[4][4];
   vec3 lightSource = {0.0f,0.0f,3.0f};
   vec3 upDirection = {0.0f,0.0f,1.0f};
-  vec3 lookAtPosition = {0.0f,0.0f,0.0f};
+  vec3 lookAtPosition = {0.0f,0.0f,0.0f}; //set this to be the boss position later
   getProjectionMatrix(projectMat,FOV,aspect,0.1f,500.0f);
 
+  //update player animation
   player p = engine->player;
-  draw_bar(1,1,p.maxHealth,(float)p.currentHeath/(float)p.maxHealth);
-  draw_bar(1,2,p.maxEndurance,p.currEndurance/p.maxEndurance);
-  
-  vec2 points2D[p.numVerts];
   if(p.currentAnimation == NULL){
     p.currentAnimation = &p.data->animations[0]; //fix this later for error handling
   }
   applyAnimation(p.data,p.currentAnimation,0.25f); //update the time input later
+  updateGltfDisplayChar(p, p.verts, lightSource);
+ 
+  //set up view matrix
+  lookAt(engine->cameraPosition,lookAtPosition,upDirection,viewMatrix); //look at need to be at boss, camera be player
+  
+  //draw character and objects
+  draw_floor(projectMat,viewMatrix,width,height);
+  playerToScreen(engine,projectMat,viewMatrix,width,height);
+  draw_bar(1,1,p.maxHealth,(float)p.currentHeath/(float)p.maxHealth);
+  draw_bar(1,2,p.maxEndurance,p.currEndurance/p.maxEndurance);
+  print_location(engine->cameraPosition);
+}
+
+void playerToScreen(engine* e, 
+              const float projectMat[4][4], 
+              const float viewMatrix[4][4],
+              const float width,
+              const float height
+  ){
+  player p = e->player;
+  vec2 points2D[p.numVerts];
   extract_animated_vertex_positions(p.data,p.verts);
   extract_face_indices(p.data,p.faces);
-
-  updateGltfDisplayChar(p, p.verts, lightSource);
-  lookAt(engine->cameraPosition,lookAtPosition,upDirection,viewMatrix);
+  vec3 playerPos = p.position;
+  // still need to adjust p.verts x,y to be relative to player position
   point3DProjection(p.verts,points2D,p.numVerts,projectMat,viewMatrix,width,height);
   for(int fi=0;fi<p.numFaces;fi++){
     for(int vi=0;vi<3;vi++){
@@ -129,12 +147,10 @@ void render(engine* engine){
       mvaddch(y,x,ch);
     }
   }
-
-  draw_floor(projectMat,viewMatrix,width,height);
-  print_location(engine->cameraPosition);
 }
 
 void draw_bar(int x, int y, int width, float percentage){
+  //draws a bar at x,y with width and percentage filled for health & endurace display
   int fill = (int)(width * percentage);
   for(int i=0;i<width;i++){
     mvaddch(y,x+i,(i<fill) ? '#' : '.');
@@ -158,7 +174,13 @@ void generate_plane(const float xmin, const float xmax,const float ymin,const fl
   }
 }
 
-void objectToScreen(object obj, vec3 location, float projectMat[4][4], float viewMatrix[4][4],vec3 lightS, float width, float height){
+void objectToScreen(object obj, 
+                    const vec3 location, 
+                    const float projectMat[4][4], 
+                    const float viewMatrix[4][4],
+                    const vec3 lightS, 
+                    const float width, 
+                    const float height){
   vec2 points2D[obj.nVerts];
   updateDisplayChars(obj,lightS);
   point3DProjection(obj.verts,points2D,obj.nVerts,projectMat,viewMatrix,width,height);
@@ -173,7 +195,11 @@ void objectToScreen(object obj, vec3 location, float projectMat[4][4], float vie
   }
 }
 
-void draw_floor(float projectMat[4][4], float viewMatrix[4][4], float width, float height){
+void draw_floor(const float projectMat[4][4], 
+                const float viewMatrix[4][4], 
+                const float width, 
+                const float height
+                ){
   vec3 floorVerts3D[2500];
   vec2 floorVerts2D[2500];
   generate_plane(-5.0f,5.0f,-5.0f,5.0f,floorVerts3D);
