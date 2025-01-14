@@ -4,7 +4,6 @@
 #include "engine.h"
 #include "vertexMath.h"
 #include <stdio.h>
-#include <sys/ioctl.h>
 #include <unistd.h>
 #include <ncurses.h>
 
@@ -38,7 +37,7 @@ void engineStop(engine* engine){
 }
 
 int processInput(engine* e){
-  MEVENT event;
+  //MEVENT event;
   int ch = getch();
   switch(ch){
     case 'a':
@@ -91,11 +90,11 @@ int processInput(engine* e){
 
 void render(engine* engine){
   erase();
-  struct winsize w;
-  ioctl(STDOUT_FILENO,TIOCGWINSZ, &w);
+  int maxy, maxx;
+  getmaxyx(stdscr,maxy,maxx);
 
-  float height = (float)w.ws_row;
-  float width = (float)w.ws_col;
+  float height = (float)maxy;
+  float width = (float)maxx;
   float aspect = width/height;
   float FOV = 82.0f;
   
