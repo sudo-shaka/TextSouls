@@ -7,19 +7,26 @@
 
 player initPlayer(int Health, int Endurance, cgltf_data* inputData){
   player p;
-  p.maxHeath = Health;
+  p.maxHealth = Health;
   p.currentHeath = Health;
-  p.maxEndurace = Endurance;
+  p.maxEndurance = Endurance;
   p.currEndurance = Endurance;
   p.data = inputData;
   p.numFaces = count_faces(inputData);
+  p.numVerts = count_verts(inputData);
+  p.verts = malloc(p.numVerts * sizeof(vec3));
+  p.displayChar = malloc(p.numVerts * sizeof(char));
+  p.faces = malloc(p.numFaces * sizeof(face));
+  extract_face_indices(inputData, p.faces); 
   p.position = getLtfCOM(inputData);
+  p.currentAnimation = findAnimationName(inputData, "Idol");
   return p;
 };
 
 void closePlayer(player p){
   cgltf_free(p.data);
   free(p.faces);
+  free(p.verts);
   free(p.displayChar);
 };
 
@@ -126,7 +133,7 @@ float calculate_total_animation_time(const cgltf_animation* animation) {
 }
 
 
-int getNumVerts(cgltf_data* data){
+int count_verts(cgltf_data* data){
   int totalVerts=0;
   if(data == NULL){
     fprintf(stderr,"error getting vert data");
