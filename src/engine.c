@@ -7,8 +7,7 @@
 #include <unistd.h>
 #include <ncurses.h>
 
-void engineInit(engine *engine)
-{
+void engineInit(engine *engine){
   initscr();
   noecho();
   cbreak();
@@ -18,8 +17,9 @@ void engineInit(engine *engine)
   curs_set(0);
   mousemask(ALL_MOUSE_EVENTS | REPORT_MOUSE_POSITION, NULL);
   mouseinterval(0);
+  const char* path = "/home/shaka/Code/C/TextSouls/resources/AnimatedMorphCube.glb";
   //const char* path = "/home/shaka/Code/C/TextSouls/resources/BoxAnimated.glb";
-  const char* path = "/home/shaka/Code/C/TextSouls/resources/player2.glb";
+  //const char* path = "/home/shaka/Code/C/TextSouls/resources/player2.glb";
   cgltf_data * playerData = processGltf(path);
   if(playerData == NULL){
     return;
@@ -27,23 +27,20 @@ void engineInit(engine *engine)
   engine->player = initPlayer(100, 100, playerData);
   engine->cameraPosition = (vec3){3.3f, -1.0f, 0.5f};
 }
-void engineRun(engine *engine)
-{
+void engineRun(engine *engine){
   if(engine->player.data == NULL){
     engineStop(engine);
     printf("player data is null\n");
     return;
   }
   // main game loop
-  while (engine->player.currentHeath > 0)
-  {
+  while (engine->player.currentHeath > 0){
     engine->player.currentAnimation = &engine->player.data->animations[0];
     //engine->player.currentAnimation = findAnimationName(engine->player.data, "death");
     startPlayerAnimation(engine);
     processHits(engine);
     int success = processInput(engine);
-    if (!success)
-    {
+    if (!success){
       engineStop(engine);
       printf("You quit... Have you gone hollow?\n");
       return;
@@ -58,15 +55,13 @@ void engineRun(engine *engine)
   printf("You died.\n");
 }
 
-void engineStop(engine *engine)
-{
+void engineStop(engine *engine){
   endwin();
   closePlayer(engine->player);
   closePlayer(engine->boss);
 }
 
-void startPlayerAnimation(engine *e)
-{
+void startPlayerAnimation(engine *e){
   float animationTime = calculate_total_animation_time(e->player.currentAnimation);
   for (float startTime = 0.0f; startTime < animationTime; startTime += 0.1f)
   {
@@ -75,44 +70,36 @@ void startPlayerAnimation(engine *e)
   }
 }
 
-int processHitOnBoss(player p, player b)
-{
+int processHitOnBoss(player p, player b){
   return 0;
 }
 
-int processHitOnPlayer(player p, player b)
-{
+int processHitOnPlayer(player p, player b){
   return 0;
 }
 
-void processHits(engine *e)
-{
+void processHits(engine *e){
   int bosshit = processHitOnBoss(e->player, e->boss);
   int playerhit = processHitOnPlayer(e->player, e->boss);
-  if (bosshit)
-  {
+  if (bosshit){
     e->boss.currentHeath -= 10;
   }
-  if (playerhit)
-  {
+  if (playerhit){
     e->player.currentHeath -= 10;
     e->player.currentAnimation = findAnimationName(e->player.data, "stagger");
     startPlayerAnimation(e);
   }
 }
 
-int processInput(engine *e)
-{
+int processInput(engine *e){
   MEVENT event;
   int ch = getch();
   // prevent player from moving if endurance is below 0
-  if (e->player.currEndurance < 0.0f)
-  {
+  if (e->player.currEndurance < 0.0f){
     e->player.currEndurance += 0.1f;
     return 1;
   }
-  switch (ch)
-  {
+  switch (ch){
   case 'a':
     e->cameraPosition.x -= 0.1f;
     e->player.position.x -= 0.1f;
@@ -148,23 +135,19 @@ int processInput(engine *e)
     break;
 
   case KEY_MOUSE:
-    if (getmouse(&event) == OK)
-    {
-      if (event.bstate & BUTTON1_PRESSED)
-      {
+    if (getmouse(&event) == OK){
+      if (event.bstate & BUTTON1_PRESSED){
         e->player.currEndurance -= 20;
         e->player.currentAnimation = findAnimationName(e->player.data, "Attack");
       }
-      else if (event.bstate & BUTTON3_PRESSED)
-      {
+      else if (event.bstate & BUTTON3_PRESSED){
         e->player.currEndurance -= 30;
         e->player.currentAnimation = findAnimationName(e->player.data, "HeavyAttack");
       }
     }
     break;
   default:
-    if (e->player.currEndurance < e->player.maxEndurance)
-    {
+    if (e->player.currEndurance < e->player.maxEndurance) {
       e->player.currEndurance += 0.1;
     }
     e->player.currentAnimation = findAnimationName(e->player.data, "Idol");
@@ -173,8 +156,7 @@ int processInput(engine *e)
   return 1;
 }
 
-void render(engine *engine)
-{
+void render(engine *engine){
   // clear screen
   refresh();
   erase();
@@ -211,8 +193,7 @@ void playerToScreen(engine *e,
                     const float projectMat[4][4],
                     const float viewMatrix[4][4],
                     const float width,
-                    const float height)
-{
+                    const float height){
   player p = e->player;
   vec2 points2D[p.numVerts];
   extract_animated_vertex_positions(p.data, p.verts);
@@ -220,10 +201,8 @@ void playerToScreen(engine *e,
   vec3 playerPos = p.position;
   // still need to adjust p.verts x,y to be relative to player position
   point3DProjection(p.verts, points2D, p.numVerts, projectMat, viewMatrix, width, height);
-  for (int fi = 0; fi < p.numFaces; fi++)
-  {
-    for (int vi = 0; vi < 3; vi++)
-    {
+  for (int fi = 0; fi < p.numFaces; fi++){
+    for (int vi = 0; vi < 3; vi++){
       int real_vi = p.faces[fi].vertIdx[vi];
       int x = (int)points2D[real_vi].x;
       int y = (int)points2D[real_vi].y;
@@ -233,18 +212,15 @@ void playerToScreen(engine *e,
   }
 }
 
-void draw_bar(int x, int y, int width, float percentage)
-{
+void draw_bar(int x, int y, int width, float percentage){
   // draws a bar at x,y with width and percentage filled for health & endurace display
   int fill = (int)(width * percentage);
-  for (int i = 0; i < width; i++)
-  {
+  for (int i = 0; i < width; i++){
     mvaddch(y, x + i, (i < fill) ? '#' : '.');
   }
 }
 
-void generate_plane(const float xmin, const float xmax, const float ymin, const float ymax, vec3 verts[2500])
-{
+void generate_plane(const float xmin, const float xmax, const float ymin, const float ymax, vec3 verts[2500]){
   int resolution = 50;
   float x_step = (xmax - xmin) / resolution;
   float y_step = (ymax - ymin) / resolution;
@@ -270,15 +246,12 @@ void objectToScreen(object obj,
                     const float viewMatrix[4][4],
                     const vec3 lightS,
                     const float width,
-                    const float height)
-{
+                    const float height){
   vec2 points2D[obj.nVerts];
   updateDisplayChars(obj, lightS);
   point3DProjection(obj.verts, points2D, obj.nVerts, projectMat, viewMatrix, width, height);
-  for (int fi = 0; fi < obj.nFaces; fi++)
-  {
-    for (int vi = 0; vi < 3; vi++)
-    {
+  for (int fi = 0; fi < obj.nFaces; fi++){
+    for (int vi = 0; vi < 3; vi++){
       int real_vi = obj.faces[fi].vertIdx[vi];
       int x = (int)points2D[real_vi].x;
       int y = (int)points2D[real_vi].y;
@@ -291,22 +264,19 @@ void objectToScreen(object obj,
 void draw_floor(const float projectMat[4][4],
                 const float viewMatrix[4][4],
                 const float width,
-                const float height)
-{
+                const float height){
   vec3 floorVerts3D[2500];
   vec2 floorVerts2D[2500];
   generate_plane(-5.0f, 5.0f, -5.0f, 5.0f, floorVerts3D);
   point3DProjection(floorVerts3D, floorVerts2D, 2500, projectMat, viewMatrix, width, height);
-  for (int vi = 0; vi < 2500 - 1; vi++)
-  {
+  for (int vi = 0; vi < 2500 - 1; vi++){
     int x = (int)floorVerts2D[vi].x;
     int y = (int)floorVerts2D[vi].y;
     mvaddch(y, x, '.');
   }
 }
 
-void print_location(vec3 v)
-{
+void print_location(vec3 v){
   mvprintw(10, 0, "%.2f", v.x);
   mvprintw(11, 0, "%.2f", v.y);
   mvprintw(12, 0, "%.2f", v.z);

@@ -17,6 +17,6 @@ typedef struct object{
 object parseObjFromFile(const char *filename);
 vec3 getObjCOM(object o);
 void freeObject(object o);
-void updateDisplayChars(object o,const vec3 lightSource);
+void updateDisplayChars(object o, const vec3 lightSource);
 
 #endif
