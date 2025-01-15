@@ -44,8 +44,8 @@ void point3DProjection(
     float viewWidth,
     float viewHeight);
 
-void linearInterolation(float* result, const float*a, const float* b, float t, int count);
-void sphericalLinInterp(float* result, const float* q1, const float* q2, float t);
+void lerp(float* result, const float*a, const float* b, float t, int count);
+void slerp(float* result, const float* q1, const float* q2, float t);
 void identityMat4(float mat[4][4]);
 void translate4(float mat[4][4], vec3 vec);
 void scale4(float mat[4][4],vec3 vec);

@@ -40,7 +40,7 @@ cgltf_data* processGltf(const char *filename){
   }
 
   // Load buffers
-  if (cgltf_load_buffers(&options, data, "filename") != cgltf_result_success) {
+  if (cgltf_load_buffers(&options, data, filename) != cgltf_result_success) {
       fprintf(stderr, "Failed to load buffers from GLB.\n");
       cgltf_free(data);
       return NULL;
@@ -48,7 +48,7 @@ cgltf_data* processGltf(const char *filename){
   return data;
 }
 
-void getInterpolatedValue(cgltf_animation_sampler* sampler, float current_time, float* result, int count){
+void interpolate(cgltf_animation_sampler* sampler, float current_time, float* result, int count){
   float time_prev = 0, time_next = 0;
   float value_prev[4] = {0}, value_next[4] = {0};
 
@@ -67,44 +67,58 @@ void getInterpolatedValue(cgltf_animation_sampler* sampler, float current_time, 
   // Interpolate
   float t = (current_time - time_prev) / (time_next - time_prev);
   if (count == 4) { // Quaternion (rotation)
-    sphericalLinInterp(result, value_prev, value_next, t);
+    slerp(result, value_prev, value_next, t);
   } else { // Translation or scale
-    linearInterolation(result, value_prev, value_next, t, count);
+    lerp(result, value_prev, value_next, t, count);
   }
 }
 
-void applyAnimation(cgltf_data* data, cgltf_animation* animation ,float current_time){
+void applyAnimation(cgltf_animation* animation ,float current_time){
   if(!animation){
     fprintf(stderr,"stderr: Animation is NULL\n");
     return;
   }
   for (cgltf_size i = 0; i < animation->channels_count; i++) {
+    
     cgltf_animation_channel* channel = &animation->channels[i];
+    cgltf_node* node = channel->target_node;
     cgltf_animation_sampler* sampler = channel->sampler;
+    if(!channel->sampler || !node){
+      continue;
+    }
 
     float result[4] = {0};
-    size_t value_count = sampler->output->stride / sizeof(float);
-    getInterpolatedValue(sampler, current_time, result, value_count);
+    size_t component_count = sampler->output->stride / sizeof(float);
+    interpolate(sampler, current_time, result, component_count);
 
     // Update the target node's transformation
-    cgltf_node* node = channel->target_node;
-    if (channel->target_path == cgltf_animation_path_type_translation) {
-        for (size_t k = 0; k < 3; k++) {
-            node->translation[k] = result[k];
+    switch (channel->target_path){
+      case cgltf_animation_path_type_translation:
+        memcpy(node->translation,result,sizeof(float)*component_count);
+        break;
+      case cgltf_animation_path_type_rotation:
+        memcpy(node->rotation, result, sizeof(float)*component_count);
+        break;
+      case cgltf_animation_path_type_scale:
+        memcpy(node->scale, result, sizeof(float)*component_count);
+        break;
+      case cgltf_animation_path_type_weights:
+        if(node->mesh->weights_count == 0){
+          break;
         }
-    } else if (channel->target_path == cgltf_animation_path_type_rotation) {
-        for (size_t k = 0; k < 4; k++) {
-            node->rotation[k] = result[k];
-        }
-    } else if (channel->target_path == cgltf_animation_path_type_scale) {
-        for (size_t k = 0; k < 3; k++) {
-            node->scale[k] = result[k];
-      }
+        interpolate(sampler, current_time, result, node->mesh->weights_count);
+        memcpy(node->mesh->weights, result, sizeof(float)*node->mesh->weights_count);
+        break;
+      default:
+        break;
     }
   }
 }
 
 float calculate_total_animation_time(const cgltf_animation* animation) {
+    if(animation == NULL){
+        return 0.0f;
+    }
     float total_length = 0.0f;
     // Iterate through each channel of the animation
     for (cgltf_size j = 0; j < animation->channels_count; ++j) {
@@ -422,13 +436,12 @@ void extract_animated_vertex_positions(cgltf_data* data, vec3* output_positions)
     free(node_world_matrices);
 }
 
-
 void updateGltfDisplayChar(player p, vec3* verts, vec3 lightSource){
   vec3 Faceverts[3];
   for(int fi=0;fi<p.numFaces;fi++){
     Faceverts[0] = verts[p.faces[fi].vertIdx[0]];
     Faceverts[1] = verts[p.faces[fi].vertIdx[1]];
-    Faceverts[2] = verts[p.faces[fi].vertIdx[2]];\
+    Faceverts[2] = verts[p.faces[fi].vertIdx[2]];
     vec3 faceNormal = calcFaceNormal(Faceverts[0],Faceverts[1],Faceverts[2]);
     float lumen =  calcLumin(lightSource,Faceverts[0],faceNormal);
     char lChar = luminToChar(lumen);

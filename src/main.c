@@ -5,6 +5,5 @@ int main(){
   engine e;
   engineInit(&e);
   engineRun(&e);
-  
   return 0;
 }
