@@ -65,7 +65,7 @@ void mat4Txvec4(float result[4], const float mat[4][4], const float vec[4]){
   }
 }
 
-void getProjectionMatrix(float projMat[4][4], float fov, float aspectR, float nearPlane, float farPlane){
+void projection_matrix(float projMat[4][4], float fov, float aspectR, float nearPlane, float farPlane){
   float f = 1.0f / tanf(fov * 0.5f * (M_PI / 180.0f));
   for (int i = 0; i < 4; i++){
     for (int j = 0; j < 4; j++){
@@ -85,6 +85,14 @@ void lerp(float *result, const float *a, const float *b, float t, int count){
   }
 }
 
+vec3 lerp_vec3(vec3 a, vec3 b, float t){
+  vec3 result;
+  result.x = a.x + t * (b.x - a.x);
+  result.y = a.y + t * (b.y - a.y);
+  result.z = a.z + t * (b.z - a.z);
+  return result;
+}
+
 void slerp(float *result, const float *q1, const float *q2, float t){
   float dot = q1[0] * q2[0] + q1[1] * q2[1] + q1[2] * q2[2] + q1[3] * q2[3];
   if (dot < 0.0f){
@@ -101,7 +109,7 @@ void slerp(float *result, const float *q1, const float *q2, float t){
   }
 }
 
-void rotateMat(float rotationMatrix[4][4], const float angle, const vec3 axis){
+void rotate_matrix(float rotationMatrix[4][4], const float angle, const vec3 axis){
   normalize(axis);
   float cosAngle = cosf(angle);
   float sinAngle = sinf(angle);
@@ -137,15 +145,11 @@ vec3 sub3(const vec3 a, const vec3 b){
   return sub;
 }
 
-double DegToRad(const float angle){
-  return angle * 180.0f / M_PI;
-}
-
-vec3 rotateAround(const vec3 point, const vec3 pivot, const float angle, const vec3 axis){
+vec3 rotate_around_point(const vec3 point, const vec3 pivot, const float angle, const vec3 axis){
   vec3 transP = sub3(point, pivot);
   float translatedPoint[4] = {transP.x, transP.y, transP.z, 0.0f};
   float rotationMatrix[4][4], rotatedPoint[4];
-  rotateMat(rotationMatrix, angle, axis);
+  rotate_matrix(rotationMatrix, angle, axis);
   mat4xvec4(rotatedPoint, rotationMatrix, translatedPoint);
 
   vec3 result;
@@ -155,7 +159,7 @@ vec3 rotateAround(const vec3 point, const vec3 pivot, const float angle, const v
   return result;
 }
 
-void lookAt(const vec3 eye, const vec3 target, const vec3 up, float viewMatrix[4][4]){
+void look_at(const vec3 eye, const vec3 target, const vec3 up, float viewMatrix[4][4]){
   vec3 Z = sub3(eye, target);
   Z = normalize(Z);
   vec3 Y = up;
@@ -183,9 +187,10 @@ void lookAt(const vec3 eye, const vec3 target, const vec3 up, float viewMatrix[4
   viewMatrix[3][3] = 1.0f;
 }
 
-void point3DProjection(
+void point_3D_projection(
     const vec3 points3D[],
     vec2 points2D[],
+    vec3 offset,
     int numPoints,
     const float projMat[4][4],
     const float viewMatrix[4][4],
@@ -193,7 +198,7 @@ void point3DProjection(
     const float viewHeight){
   for (int i = 0; i < numPoints; i++){
     // convert 3d point to 3f homogenous coordinate
-    float pointHomo[4] = {points3D[i].x, points3D[i].y, points3D[i].z, 1.0f};
+    float pointHomo[4] = {points3D[i].x+offset.x, points3D[i].y+offset.y, points3D[i].z+offset.z, 1.0f};
     // camera transformation
     float cameraPoint[4];
     mat4xvec4(cameraPoint, viewMatrix, pointHomo);
@@ -210,7 +215,7 @@ void point3DProjection(
   }
 }
 
-vec3 calcFaceNormal(vec3 v1, vec3 v2, vec3 v3){
+vec3 calc_face_normal(vec3 v1, vec3 v2, vec3 v3){
   vec3 edge1 = {v2.x - v1.x, v2.y - v1.y, v2.z - v1.z};
   vec3 edge2 = {v3.x - v1.x, v3.y - v1.y, v3.z - v1.z};
   vec3 normal = cross3(edge1, edge2);
@@ -233,6 +238,7 @@ void translate4(float mat[4][4], vec3 vec){
   mat[1][3] = vec.y;
   mat[2][3] = vec.z;
 }
+
 void mat4xmat4(float result[4][4], const float a[4][4], const float b[4][4]){
   for (int i = 0; i < 4; i++){
     for (int j = 0; j < 4; j++){
@@ -261,7 +267,7 @@ void scale4(float mat[4][4], vec3 vec){
   mat[2][2] = vec.z;
 }
 
-float calcLumin(const vec3 lightSource, const vec3 facePoint, vec3 faceNormal){
+float calc_luminesence(const vec3 lightSource, const vec3 facePoint, vec3 faceNormal){
   vec3 lightDir = {
       lightSource.x - facePoint.x,
       lightSource.y - facePoint.y,
@@ -271,7 +277,7 @@ float calcLumin(const vec3 lightSource, const vec3 facePoint, vec3 faceNormal){
   float lumin = dot3(faceNormal, lightDir);
   return fmaxf(lumin, 0.0f);
 }
-char luminToChar(float l){
+char lumin_to_char(float l){
   l *= 11;
   int idx = (int)l;
   char val = ".,-~:;=!*#$@"[idx];
@@ -295,4 +301,34 @@ vec3 getCOM(const vec3 *verts, const int numVerts){
   com.y /= (float)numVerts;
   com.z /= (float)numVerts;
   return com;
+}
+
+vec3 apply_quanternion(vec3 vec, float q[4]){
+  float qConj[4] = {q[0],-q[1],-q[2],-q[3]};
+  float qVector[4] = {0.0f,vec.x,vec.y,vec.z};
+
+  float tmp[4];
+  tmp[0] = q[0] * qVector[0] - q[1] * qVector[1] - q[2] * qVector[2] - q[3] * qVector[3];
+  tmp[1] = q[0] * qVector[1] + q[1] * qVector[0] + q[2] * qVector[3] - q[3] * qVector[2];
+  tmp[2] = q[0] * qVector[2] - q[1] * qVector[3] + q[2] * qVector[0] + q[3] * qVector[1];
+  tmp[3] = q[0] * qVector[3] + q[1] * qVector[2] - q[2] * qVector[1] + q[3] * qVector[0];
+
+  vec3 result;
+  result.x = tmp[0] * qConj[1] + tmp[1] * qConj[0] + tmp[2] * qConj[3] - tmp[3] * qConj[2];
+  result.y = tmp[0] * qConj[2] - tmp[1] * qConj[3] + tmp[2] * qConj[0] + tmp[3] * qConj[1];
+  result.z = tmp[0] * qConj[3] + tmp[1] * qConj[2] - tmp[2] * qConj[1] + tmp[3] * qConj[0];
+  return result;
+}
+
+vec3 calculate_ideal_look_at(vec3 target_position){
+  vec3 result = {0.0f,0.5f,1.0f};
+  result = add3(result,target_position);
+  return result;
+}
+
+
+vec3 calculate_ideal_offset(vec3 target_position){
+  vec3 result = {0.0f,1.0f,1.5f};
+  result = add3(result, target_position);
+  return result;
 }

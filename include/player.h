@@ -16,6 +16,8 @@ typedef struct player{
   cgltf_data *data;
   face *faces;
   vec3 *verts;
+  vec3 direction;
+  int lockedon;
   vec3 bodyHitbox[8];
   vec3 weaponHitbox[8];
   cgltf_animation *currentAnimation;
@@ -25,7 +27,7 @@ player initPlayer(int Health, int Endurance, cgltf_data *inputData);
 void closePlayer(player p);
 cgltf_data *processGltf(const char *filename);
 void interpolate(cgltf_animation_sampler *sampler, float current_time, float *result, int count);
-void applyAnimation(cgltf_animation *animation, float current_time);
+void apply_animation(cgltf_animation *animation, float current_time);
 void getPlayerVerts(cgltf_data *data, vec3 *Pos);
 void extract_face_indices(const cgltf_data *data, face *faces);
 int count_faces(const cgltf_data *data);

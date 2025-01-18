@@ -76,9 +76,9 @@ void updateDisplayChars(object o, vec3 lightSource){
     Faceverts[0] = o.verts[o.faces[fi].vertIdx[0]];
     Faceverts[1] = o.verts[o.faces[fi].vertIdx[1]];
     Faceverts[2] = o.verts[o.faces[fi].vertIdx[2]];
-    vec3 faceNormal = calcFaceNormal(Faceverts[0], Faceverts[1], Faceverts[2]);
-    float lumen = calcLumin(lightSource, Faceverts[0], faceNormal);
-    char lChar = luminToChar(lumen);
+    vec3 faceNormal = calc_face_normal(Faceverts[0], Faceverts[1], Faceverts[2]);
+    float lumen = calc_luminesence(lightSource, Faceverts[0], faceNormal);
+    char lChar = lumin_to_char(lumen);
     for (int vi = 0; vi < o.faces[fi].vertCount; vi++){
       o.displayChar[o.faces[fi].vertIdx[vi]] = lChar;
     }

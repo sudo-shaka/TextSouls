@@ -3,7 +3,7 @@
 
 int main(){
   engine e;
-  engineInit(&e);
-  engineRun(&e);
+  engine_start(&e);
+  engine_run(&e);
   return 0;
 }
