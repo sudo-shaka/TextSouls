@@ -87,7 +87,8 @@ void interpolate(cgltf_animation_sampler *sampler, float current_time, float *re
   }
 }
 
-void apply_animation(cgltf_animation *animation, float current_time){
+void apply_animation(player *p){
+  cgltf_animation * animation = p->currentAnimation;
   if (!animation)
   {
     fprintf(stderr, "stderr: Animation is NULL\n");
@@ -106,7 +107,7 @@ void apply_animation(cgltf_animation *animation, float current_time){
 
     float result[4] = {0};
     size_t component_count = sampler->output->stride / sizeof(float);
-    interpolate(sampler, current_time, result, component_count);
+    interpolate(sampler, p->animation_time, result, component_count);
 
     // Update the target node's transformation
     switch (channel->target_path)
@@ -125,7 +126,7 @@ void apply_animation(cgltf_animation *animation, float current_time){
       {
         break;
       }
-      interpolate(sampler, current_time, result, node->mesh->weights_count);
+      interpolate(sampler, p->animation_time, result, node->mesh->weights_count);
       memcpy(node->mesh->weights, result, sizeof(float) * node->mesh->weights_count);
       break;
     default:
@@ -196,7 +197,7 @@ int count_verts(cgltf_data *data){
   return totalVerts;
 }
 
-void getPlayerVerts(cgltf_data *data, vec3 *Pos){
+void extract_static_player_verts(cgltf_data *data, vec3 *Pos){
   int currentVert = 0;
   for (cgltf_size mesh_index = 0; mesh_index < data->meshes_count; ++mesh_index)
   {
@@ -344,6 +345,12 @@ void calculate_joint_matrices(const cgltf_skin *skin, const float *node_world_ma
     // Multiply the world matrix by the inverse bind matrix
     asVecmat4xmat4(&joint_matrices[i * 16], joint_world_matrix, inverse_bind_matrix);
   }
+}
+
+void set_animation(player * p, cgltf_animation * animation){
+  p->currentAnimation = animation;
+  p->animation_time = 0.0f;
+  p->total_animation_time = calculate_total_animation_time(animation);
 }
 
 // Compute world matrix for a node

@@ -22,14 +22,15 @@ void engine_start(engine *engine){
   mousemask(ALL_MOUSE_EVENTS | REPORT_MOUSE_POSITION, NULL);
   mouseinterval(0);
   const char * bpath = "/home/shaka/Code/C/TextSouls/resources/BoxAnimated.glb";
-  const char * ppath = "/home/shaka/Code/C/TextSouls/resources/example.gltf";
+  //const char * ppath = "/home/shaka/Code/C/TextSouls/resources/example.gltf";
+  const char * ppath = "/home/shaka/Code/C/TextSouls/resources/player2.glb";
   cgltf_data * player_data = processGltf(ppath);
   cgltf_data * boss_data = processGltf(bpath);
   if(player_data == NULL || boss_data == NULL){
     return;
   }
   engine->player = initPlayer(100, 100, player_data);
-  engine->boss = initPlayer(100,100,boss_data);
+  engine->boss = initPlayer(250,100,boss_data);
 }
 void engine_run(engine *engine){
   if(engine->player.data == NULL || engine->boss.data == NULL){
@@ -38,11 +39,13 @@ void engine_run(engine *engine){
     return;
   }
   // main game loop
+  set_animation(&engine->player, &engine->player.data->animations[0]);
+  set_animation(&engine->boss, &engine->boss.data->animations[0]);
   while (engine->player.currentHeath > 0){
     engine->start_time = clock();
     process_hits(engine);
     int success = process_input(engine);
-    play_animations(engine,engine->start_time);
+    play_animations(engine);
     if (!success){
       engine_stop(engine);
       printf("You quit... Have you gone hollow?\n");
@@ -51,14 +54,9 @@ void engine_run(engine *engine){
     render(engine);
     mvprintw(10,5,"%.f FPS",1/CURRTIME(engine->start_time,clock())/100);
   }
-  engine->player.currentAnimation = findAnimationName(engine->player.data, "death");
+  //set_animation(&engine->player, findAnimationName(engine->player.data, "death"));
   engine_stop(engine);
   printf("You died.\n");
-}
-
-void play_animations(engine * engine, float time){
-  engine->boss.currentAnimation = &engine->boss.data->animations[0];
-  apply_animation(engine->boss.currentAnimation,time);
 }
 
 void engine_stop(engine *engine){
@@ -75,6 +73,20 @@ int process_hits_on_player(player p, player b){
   return 0;
 }
 
+void play_animations(engine *e){
+  float current_time = CURRTIME(e->start_time,clock());
+  if(e->player.animation_time > e->player.total_animation_time){
+    e->player.animation_time = 0.0f;
+  }
+  if(e->boss.animation_time > e->boss.total_animation_time){
+    e->boss.animation_time = 0.0f;
+  }
+  e->player.animation_time += current_time*15.0f;
+  e->boss.animation_time += current_time*15.0f;
+  apply_animation(&e->player);
+  apply_animation(&e->boss);
+}
+
 void process_hits(engine *e){
   int bosshit = process_hits_on_boss(e->player, e->boss);
   int playerhit = process_hits_on_player(e->player, e->boss);
@@ -83,7 +95,7 @@ void process_hits(engine *e){
   }
   if (playerhit){
     e->player.currentHeath -= 10;
-    e->player.currentAnimation = findAnimationName(e->player.data, "stagger");
+    //set_animation(&e->player, findAnimationName(e->player.data, "stagger"));
   }
 }
 
@@ -104,46 +116,46 @@ int process_input(engine *e){
       e->player.position.x += 0.1f;
     else
      e->player.position = rotate_around_point(e->player.position, e->boss.position, 0.1f, (vec3){0,0,1});
-    e->player.currentAnimation = findAnimationName(e->player.data, "walk");
+    //set_animation(&e->player, findAnimationName(e->player.data, "walk"));
     break;
   case 'd':
     if(!e->player.lockedon)
       e->player.position.x -= 0.1f;
     else
      e->player.position = rotate_around_point(e->player.position, e->boss.position, 0.1f, (vec3){0,0,-1});
-    e->player.currentAnimation = findAnimationName(e->player.data, "walk");
+    //set_animation(&e->player, findAnimationName(e->player.data, "walk"));
     break;
   case 'w':
     if(!e->player.lockedon)
       e->player.position.y -= 0.1f;
     else
      e->player.position = sub3(e->player.position,diff);
-    e->player.currentAnimation = findAnimationName(e->player.data, "walk");
+    //set_animation(&e->player, findAnimationName(e->player.data, "walk"));
     break;
   case 's':
     if(!e->player.lockedon)
       e->player.position.y += 0.1f;
     else
      e->player.position = add3(e->player.position,diff);
-    e->player.currentAnimation = findAnimationName(e->player.data, "walk");
+    //set_animation(&e->player, findAnimationName(e->player.data, "walk"));
     break;
   case 'q':
     return 0;
   case ' ':
     e->player.currEndurance -= 15;
     e->player.blocking = 1;
-    e->player.currentAnimation = findAnimationName(e->player.data, "Block");
+    //set_animation(&e->player, findAnimationName(e->player.data, "block"));
     break;
 
   case KEY_MOUSE:
     if (getmouse(&event) == OK){
       if (event.bstate & BUTTON1_PRESSED){
         e->player.currEndurance -= 20;
-        e->player.currentAnimation = findAnimationName(e->player.data, "Attack");
+        //set_animation(&e->player, findAnimationName(e->player.data, "Attack"));
       }
       else if (event.bstate & BUTTON3_PRESSED){
         e->player.currEndurance -= 30;
-        e->player.currentAnimation = findAnimationName(e->player.data, "HeavyAttack");
+        //set_animation(&e->player, findAnimationName(e->player.data, "HeavyAttack"));
       }
       else if(event.bstate & BUTTON2_PRESSED){
         e->player.lockedon = !e->player.lockedon;
@@ -154,7 +166,7 @@ int process_input(engine *e){
     if (e->player.currEndurance < e->player.maxEndurance) {
       e->player.currEndurance += 1000.0f * CURRTIME(e->start_time,clock());
     }
-    e->player.currentAnimation = findAnimationName(e->player.data, "Idol");
+    //set_animation(&e->player, findAnimationName(e->player.data, "Idol"));
     break;
   }
   return 1;

@@ -21,11 +21,10 @@ int process_input(engine *engine);
 void render(engine *engine);
 void draw_bar(int x, int y, int width, float percentage);
 void generate_plane(const float xmin, const float xmax, const float ymin, const float ymax, vec3 verts[2500]);
-void start_player_animation(engine *e);
 void process_hits(engine *e);
 int process_hits_on_player(player p1, player boss);
 int process_hits_on_boss(player p1, player boss);
-void play_animations(engine * engine, float time);
+void play_animations(engine * engine);
 void object_to_screen(object obj,
                     const vec3 location,
                     const float projectMat[4][4],
