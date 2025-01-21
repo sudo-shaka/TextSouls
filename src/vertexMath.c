@@ -1,15 +1,12 @@
 #include "vertexMath.h"
 #include "math.h"
+#include <omp.h>
 #ifndef M_PI
 #define M_PI 3.1425926535
 #endif
 
 vec3 add3(const vec3 a, const vec3 b){
-  vec3 sum;
-  sum.x = a.x + b.x;
-  sum.y = a.y + b.y;
-  sum.z = a.z + b.z;
-  return sum;
+  return (vec3){a.x+b.x,a.y+b.y,a.z+b.z};
 }
 
 float dot3(const vec3 a, const vec3 b){
@@ -48,6 +45,7 @@ void vMat4toMat4(float result[4][4], const float a[16]){
 }
 
 void mat4xvec4(float result[4], const float mat[4][4], const float vec[4]){
+  #pragma omp parallel for
   for (int i = 0; i < 4; ++i){
     result[i] = 0.0f;
     for (int j = 0; j < 4; ++j){
@@ -80,6 +78,7 @@ void projection_matrix(float projMat[4][4], float fov, float aspectR, float near
 }
 
 void lerp(float *result, const float *a, const float *b, float t, int count){
+  #pragma omp simd
   for (int i = 0; i < count; i++){
     result[i] = a[i] + t * (b[i] - a[i]);
   }
@@ -138,11 +137,7 @@ void rotate_matrix(float rotationMatrix[4][4], const float angle, const vec3 axi
 }
 
 vec3 sub3(const vec3 a, const vec3 b){
-  vec3 sub;
-  sub.x = a.x - b.x;
-  sub.y = a.y - b.y;
-  sub.z = a.z - b.z;
-  return sub;
+  return (vec3){a.x-b.x,a.y-b.y,a.z-b.z};
 }
 
 vec3 rotate_around_point(const vec3 point, const vec3 pivot, const float angle, const vec3 axis){
@@ -216,8 +211,10 @@ void point_3D_projection(
 }
 
 vec3 calc_face_normal(vec3 v1, vec3 v2, vec3 v3){
-  vec3 edge1 = {v2.x - v1.x, v2.y - v1.y, v2.z - v1.z};
-  vec3 edge2 = {v3.x - v1.x, v3.y - v1.y, v3.z - v1.z};
+  vec3 edge1 = sub3(v2,v1);
+  vec3 edge2 = sub3(v3,v1);
+  //vec3 edge1 = {v2.x - v1.x, v2.y - v1.y, v2.z - v1.z};
+  //vec3 edge2 = {v3.x - v1.x, v3.y - v1.y, v3.z - v1.z};
   vec3 normal = cross3(edge1, edge2);
   return normalize(normal);
 }
@@ -328,7 +325,7 @@ vec3 calculate_ideal_look_at(vec3 target_position){
 
 
 vec3 calculate_ideal_offset(vec3 target_position){
-  vec3 result = {0.0f,1.0f,1.5f};
+  vec3 result = {0.0f,1.0f,2.0f};
   result = add3(result, target_position);
   return result;
 }

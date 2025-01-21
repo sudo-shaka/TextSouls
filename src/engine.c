@@ -220,6 +220,7 @@ void player_to_screen(player p,
                     const float height){
   vec2 points2D[p.numVerts];
   extract_animated_vertex_positions(p.data, p.verts);
+  extract_static_player_verts(p.data, p.verts);
   extract_face_indices(p.data, p.faces);
   point_3D_projection(p.verts, points2D, p.position,p.numVerts, projectMat, viewMatrix, width, height);
   for (int fi = 0; fi < p.numFaces; fi++){

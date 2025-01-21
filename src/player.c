@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <omp.h>
 
 player initPlayer(int Health, int Endurance, cgltf_data *inputData){
   player p;
@@ -237,6 +238,7 @@ int count_faces(const cgltf_data *data){
   size_t total_faces = 0;
 
   // Iterate through all meshes
+  #pragma omp simd
   for (cgltf_size mesh_index = 0; mesh_index < data->meshes_count; ++mesh_index)
   {
     const cgltf_mesh *mesh = &data->meshes[mesh_index];
@@ -284,6 +286,7 @@ void extract_face_indices(const cgltf_data *data, face *faces){
     return;
   }
 
+  #pragma omp simd
   for (cgltf_size mesh_index = 0; mesh_index < data->meshes_count; ++mesh_index)
   {
     const cgltf_mesh *mesh = &data->meshes[mesh_index];
@@ -395,6 +398,7 @@ void apply_skinning(cgltf_accessor *position_accessor, cgltf_accessor *joints_ac
     cgltf_accessor_read_float(weights_accessor, i, weights, 4);
 
     vec3 transformed_position = {0, 0, 0};
+    #pragma omp simd
     for (int j = 0; j < 4; ++j)
     {
       float weight = weights[j];
