@@ -23,7 +23,7 @@ void engine_start(engine *engine){
   curs_set(0);
   mousemask(ALL_MOUSE_EVENTS | REPORT_MOUSE_POSITION, NULL);
   mouseinterval(0);
-  const char * ppath = "/home/shaka/Code/C/TextSouls/resources/player2.glb";
+  const char * ppath = "/home/shaka/Code/C/TextSouls/resources/player.glb";
   const char * bpath = "/home/shaka/Code/C/TextSouls/resources/AnimatedMorphCube.glb";
   cgltf_data * player_data = processGltf(ppath);
   cgltf_data * boss_data = processGltf(bpath);
