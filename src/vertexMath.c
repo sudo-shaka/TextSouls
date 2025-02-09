@@ -258,6 +258,14 @@ void asVecmat4xmat4(float *result, const float *a, const float *b){
   }
 }
 
+void asVecTranspose(float *result, const float *input, int x, int y){
+  for(int i=0;i<x;i++){
+    for(int j=0;j<y;j++){
+      result[j * x + i] = input[i * y + j];
+    }
+  }
+}
+
 void scale4(float mat[4][4], vec3 vec){
   mat[0][0] = vec.x;
   mat[1][1] = vec.y;
@@ -281,10 +289,14 @@ char lumin_to_char(float l){
   return val;
 }
 
-int isFaceFacingPoint(vec3 faceNormal, vec3 cameraPos, vec3 pointOnFace){
-  vec3 viewVector = sub3(cameraPos, pointOnFace);
-  float dot = dot3(faceNormal, viewVector);
-  return dot > 0;
+int is_face_facing_point(vec3 v[3], vec3 p){
+  vec3 edge1 = sub3(v[1],v[0]);
+  vec3 edge2 = sub3(v[2],v[1]);
+  vec3 norm = cross3(edge1,edge2);
+  vec3 ap = sub3(p,v[0]);
+  float dot = dot3(norm,ap);
+  //return 1 for facing, -1 for away, 0 for on plane
+  return dot > 0 ? 1 : (dot < 0 ? -1 : 0);
 }
 
 vec3 getCOM(const vec3 *verts, const int numVerts){
@@ -322,7 +334,6 @@ vec3 calculate_ideal_look_at(vec3 target_position){
   result = add3(result,target_position);
   return result;
 }
-
 
 vec3 calculate_ideal_offset(vec3 target_position){
   vec3 result = {0.0f,1.0f,2.0f};

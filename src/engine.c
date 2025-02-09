@@ -10,9 +10,11 @@
 #include <math.h>
 
 #define CURRTIME(s,e)((e-s)/CLOCKS_PER_SEC)
+#define SWAP(x,y){int tmp=x;x=y,y=tmp;}
 
 void engine_start(engine *engine){
   initscr();
+  if(has_colors()){start_color();use_default_colors();}
   noecho();
   cbreak();
   nodelay(stdscr, TRUE);
@@ -21,9 +23,8 @@ void engine_start(engine *engine){
   curs_set(0);
   mousemask(ALL_MOUSE_EVENTS | REPORT_MOUSE_POSITION, NULL);
   mouseinterval(0);
-  const char * bpath = "/home/shaka/Code/C/TextSouls/resources/BoxAnimated.glb";
-  //const char * ppath = "/home/shaka/Code/C/TextSouls/resources/example.gltf";
   const char * ppath = "/home/shaka/Code/C/TextSouls/resources/player2.glb";
+  const char * bpath = "/home/shaka/Code/C/TextSouls/resources/AnimatedMorphCube.glb";
   cgltf_data * player_data = processGltf(ppath);
   cgltf_data * boss_data = processGltf(bpath);
   if(player_data == NULL || boss_data == NULL){
@@ -39,7 +40,7 @@ void engine_run(engine *engine){
     return;
   }
   // main game loop
-  set_animation(&engine->player, &engine->player.data->animations[0]);
+  set_animation(&engine->player, &engine->player.data->animations[1]);
   set_animation(&engine->boss, &engine->boss.data->animations[0]);
   while (engine->player.currentHeath > 0){
     engine->start_time = clock();
@@ -52,7 +53,7 @@ void engine_run(engine *engine){
       return;
     }
     render(engine);
-    mvprintw(10,5,"%.f FPS",1/CURRTIME(engine->start_time,clock())/100);
+    mvprintw(10,5,"%4.1f FPS",1/CURRTIME(engine->start_time,clock()));
   }
   //set_animation(&engine->player, findAnimationName(engine->player.data, "death"));
   engine_stop(engine);
@@ -81,8 +82,8 @@ void play_animations(engine *e){
   if(e->boss.animation_time > e->boss.total_animation_time){
     e->boss.animation_time = 0.0f;
   }
-  e->player.animation_time += current_time*15.0f;
-  e->boss.animation_time += current_time*15.0f;
+  e->player.animation_time += current_time;
+  e->boss.animation_time += current_time;
   apply_animation(&e->player);
   apply_animation(&e->boss);
 }
@@ -179,19 +180,17 @@ void render(engine *engine){
   // set up projection matrix
   int maxy, maxx;
   getmaxyx(stdscr, maxy, maxx);
-  float height = (float)maxy;
-  float width = (float)maxx;
-  float aspect = width / height;
-  float FOV = 82.0f;
-  float projectMat[4][4];
-  float viewMatrix[4][4];
-  vec3 lightSource = {0.0f, 0.0f, 3.0f};
-  vec3 upDirection = {0.0f, 0.0f, 1.0f};
-  projection_matrix(projectMat, FOV, aspect, 0.1f, 500.0f);
+  engine->screen_height = (float)maxy;
+  engine->screen_width = (float)maxx;
+  float aspect = engine->screen_width / engine->screen_height;
+  engine->FOV = 82.0f;
+  engine->lightS = (vec3){0.0f, 0.0f, 3.0f};
+  engine->upDirection = (vec3){0.0f, 0.0f, 1.0f};
+  projection_matrix(engine->projectMat, engine->FOV, aspect, 0.1f, 500.0f);
 
   // update player display chars
   player p = engine->player;
-  updateGltfDisplayChar(p, p.verts, lightSource);
+  updateGltfDisplayChar(p, p.verts, engine->lightS);
 
   // set up view matrix
   engine->boss.position = getLtfCOM(engine->boss.data);
@@ -203,33 +202,48 @@ void render(engine *engine){
   
   engine->camera_position = lerp_vec3(engine->camera_position,ideal_camera,t);
   engine->look_at_position = lerp_vec3(engine->look_at_position,ideal_lookat,t);
-  look_at(engine->camera_position,engine->look_at_position, upDirection, viewMatrix); 
+  look_at(engine->camera_position,engine->look_at_position, engine->upDirection, engine->viewMatrix); 
 
   // draw character and objects
-  //draw_floor(projectMat,viewMatrix,width,height);
-  player_to_screen(engine->player, projectMat, viewMatrix, width, height);
-  player_to_screen(engine->boss, projectMat, viewMatrix, width, height);
+  //draw_floor(engine->projectMat,engine->viewMatrix,engine->screen_width,engine->screen_height);
+  player_to_screen(engine, &engine->player);
+  player_to_screen(engine, &engine->boss);
   draw_bar(1, 1, p.maxHealth, (float)p.currentHeath / (float)p.maxHealth);
   draw_bar(1, 2, p.maxEndurance, p.currEndurance / p.maxEndurance);
 }
 
-void player_to_screen(player p,
-                    const float projectMat[4][4],
-                    const float viewMatrix[4][4],
-                    const float width,
-                    const float height){
-  vec2 points2D[p.numVerts];
-  extract_animated_vertex_positions(p.data, p.verts);
-  extract_static_player_verts(p.data, p.verts);
-  extract_face_indices(p.data, p.faces);
-  point_3D_projection(p.verts, points2D, p.position,p.numVerts, projectMat, viewMatrix, width, height);
-  for (int fi = 0; fi < p.numFaces; fi++){
-    for (int vi = 0; vi < 3; vi++){
-      int real_vi = p.faces[fi].vertIdx[vi];
-      int x = (int)points2D[real_vi].x;
-      int y = (int)points2D[real_vi].y;
-      char ch = p.displayChar[real_vi];
-      mvaddch(y, x, ch);
+void player_to_screen(engine *e,
+                    player *p){
+  vec2 points2D[p->numVerts];
+  extract_animated_vertex_positions(p->data, p->verts);
+  point_3D_projection(p->verts, 
+    points2D, 
+    p->position,
+    p->numVerts, 
+    e->projectMat,
+    e->viewMatrix, 
+    e->screen_width, 
+    e->screen_height
+  );
+  for (int fi = 0; fi < p->numFaces; fi++){
+    int idx[3] = {0}; 
+    idx[0] = p->faces[fi].vertIdx[0];
+    idx[1] = p->faces[fi].vertIdx[1];
+    idx[2] = p->faces[fi].vertIdx[2];
+    if(idx[0] >= p->numVerts || idx[1] >= p->numVerts || idx[2] >= p->numVerts){
+      continue;
+    }
+    vec3 a3[3] = {p->verts[idx[0]],p->verts[idx[1]],p->verts[idx[2]]};
+    vec2 a2[3] = {points2D[idx[0]],points2D[idx[1]],points2D[idx[2]]};
+    int isfacing = is_face_facing_point(a3, e->camera_position);
+    if(isfacing != -1){
+      //fillshape(a2[0],a2[1],a2[2]);
+      for (int vi = 0; vi < 3; vi++){
+        int x = (int)a2[vi].x;
+        int y = (int)a2[vi].y;
+        char ch = p->displayChar[idx[vi]];
+        mvaddch(y, x, ch);
+      }
     }
   }
 }
@@ -262,17 +276,14 @@ void generate_plane(const float xmin, const float xmax, const float ymin, const 
   }
 }
 
-void object_to_screen(object obj,
-                    const vec3 location,
-                    const float projectMat[4][4],
-                    const float viewMatrix[4][4],
-                    const vec3 lightS,
-                    const float width,
-                    const float height){
+void object_to_screen(engine *e,
+                    object obj,       
+                    const vec3 location){
   vec2 points2D[obj.nVerts];
-  updateDisplayChars(obj, lightS);
+  updateDisplayChars(obj, e->lightS);
   vec3 offset = {0,0,0};
-  point_3D_projection(obj.verts, points2D, offset, obj.nVerts, projectMat, viewMatrix, width, height);
+  point_3D_projection(obj.verts, points2D, offset, obj.nVerts, 
+      e->projectMat, e->viewMatrix, e->screen_width, e->screen_height);
   for (int fi = 0; fi < obj.nFaces; fi++){
     for (int vi = 0; vi < 3; vi++){
       int real_vi = obj.faces[fi].vertIdx[vi];
@@ -280,6 +291,44 @@ void object_to_screen(object obj,
       int y = (int)points2D[real_vi].y;
       char ch = obj.displayChar[real_vi];
       mvaddch(y, x, ch);
+    }
+  }
+}
+
+void fillshape(vec2 a, vec2 b, vec2 c){
+  int i,j;
+  if(a.y > b.y){
+    SWAP(a.y,b.y);
+    SWAP(a.x,b.x);
+  }
+  if(a.y > c.y){
+    SWAP(a.y,c.y);
+    SWAP(a.x,c.x);
+  }
+  if(b.y > c.y){
+    SWAP(b.y,c.y);
+    SWAP(b.x,c.x);
+  }
+  int x1 = (int)a.x;
+  int y1 = (int)a.y;
+  int x2 = (int)b.x;
+  int y2 = (int)b.y;
+  int x3 = (int)c.x;
+  int y3 = (int)c.y;
+
+  if(y3-y1 < 5 || y2-y1 < 5 || x3 - x1 < 5 || x2 - x1 < 5){
+    return;
+  }
+
+  for(i=y1;i<=y3;i++){
+    int x_left = x1 + (i-y1) * (x3-x1) / (y3-y1);
+    int x_right = x1 + (i-y1) * (x2-x1) / (y2-y1);
+    if(i > y2){
+      x_right = x2 + (i-y2) * (x3-x2)/(y3-y2);
+    }
+
+    for(j=x_left;j<=x_right;j++){
+      mvaddch(i,j,'#');
     }
   }
 }

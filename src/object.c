@@ -62,6 +62,12 @@ object parseObjFromFile(const char *filename){
     newO.faces = realloc(tmpFace, fCount * sizeof(face));
   if (displayChars != NULL)
     newO.displayChar = realloc(displayChars, vCount * sizeof(char));
+  for(int i=0;i<fCount;i++){
+    newO.faces[i].vertIdx[0] -= 1;
+    newO.faces[i].vertIdx[1] -= 1;
+    newO.faces[i].vertIdx[2] -= 1;
+    newO.faces[i].vertIdx[3] -= 1;
+  }
   newO.nVerts = vCount;
   newO.nFaces = fCount;
   newO.displayChar = displayChars;

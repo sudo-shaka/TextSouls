@@ -10,9 +10,9 @@ typedef struct vec2{
 } vec2;
 
 typedef struct face{
-  int vertIdx[4];
-  int normalIdx[4];
-  int vertCount;
+  unsigned int vertIdx[4];
+  unsigned int normalIdx[4];
+  unsigned int vertCount;
 } face;
 
 void vMat4toMat4(float result[4][4], const float a[16]);
@@ -55,7 +55,8 @@ void scale4(float mat[4][4], vec3 vec);
 void mat4xmat4(float result[4][4], const float a[4][4], const float b[4][4]);
 void asVecmat4xmat4(float *result, const float *a, const float *b);
 vec3 getCOM(const vec3 *, const int numVerts);
-int isFaceFacingPoint(vec3 faceNormal, vec3 cameraPos, vec3 pointOnFace);
+int is_face_facing_point(vec3 v[3], vec3 p);
 vec3 calculate_ideal_look_at(vec3 target_pos);
 vec3 calculate_ideal_offset(vec3 target_pos);
+void asVecTranspose(float *result, const float *input, int x, int y);
 #endif
