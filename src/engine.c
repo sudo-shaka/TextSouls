@@ -23,8 +23,8 @@ void engine_start(engine *engine){
   curs_set(0);
   mousemask(ALL_MOUSE_EVENTS | REPORT_MOUSE_POSITION, NULL);
   mouseinterval(0);
-  const char * ppath = "/home/shaka/Code/C/TextSouls/resources/player.glb";
-  const char * bpath = "/home/shaka/Code/C/TextSouls/resources/AnimatedMorphCube.glb";
+  const char * ppath = "/home/shaka/Code/C/TextSouls/resources/example.gltf";
+  const char * bpath = "/home/shaka/Code/C/TextSouls/resources/example.gltf";
   cgltf_data * player_data = processGltf(ppath);
   cgltf_data * boss_data = processGltf(bpath);
   if(player_data == NULL || boss_data == NULL){
@@ -40,7 +40,8 @@ void engine_run(engine *engine){
     return;
   }
   // main game loop
-  set_animation(&engine->player, &engine->player.data->animations[1]);
+  //set_animation(&engine->player, findAnimationName(engine->player.data,"walking"));
+  set_animation(&engine->player, &engine->player.data->animations[0]);
   set_animation(&engine->boss, &engine->boss.data->animations[0]);
   while (engine->player.currentHeath > 0){
     engine->start_time = clock();
@@ -55,7 +56,7 @@ void engine_run(engine *engine){
     render(engine);
     mvprintw(10,5,"%4.1f FPS",1/CURRTIME(engine->start_time,clock()));
   }
-  //set_animation(&engine->player, findAnimationName(engine->player.data, "death"));
+  set_animation(&engine->player, findAnimationName(engine->player.data, "death"));
   engine_stop(engine);
   printf("You died.\n");
 }

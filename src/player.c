@@ -199,6 +199,7 @@ int count_verts(cgltf_data *data){
 }
 
 void extract_static_player_verts(cgltf_data *data, vec3 *Pos){
+
   int currentVert = 0;
   for (cgltf_size mesh_index = 0; mesh_index < data->meshes_count; ++mesh_index)
   {
@@ -211,16 +212,11 @@ void extract_static_player_verts(cgltf_data *data, vec3 *Pos){
         cgltf_attribute *attr = &prim->attributes[attr_index];
         if (attr->type == cgltf_attribute_type_position)
         {
-          cgltf_accessor *accessor = attr->data;
-          cgltf_buffer_view *buffer_view = accessor->buffer_view;
-          const uint8_t *buffer_data = (const uint8_t *)buffer_view->buffer->data;
-          const uint8_t *vertex_data_ptr = buffer_data + buffer_view->offset + accessor->offset;
-
-          for (cgltf_size i = 0; i < accessor->count; ++i)
+          for (cgltf_size i = 0; i < attr->data->count; ++i)
           {
-            const float *position = (const float *)(vertex_data_ptr + i * accessor->stride);
-            vec3 currPos = {position[0], position[2], position[1]};
-            Pos[currentVert] = currPos;
+            float position[3];
+            cgltf_accessor_read_float(attr->data, i, position,3);
+            Pos[currentVert] = (vec3){position[0],position[2],position[1]};
             currentVert++;
           }
         }
@@ -236,7 +232,7 @@ int count_faces(const cgltf_data *data){
   }
 
   size_t total_faces = 0;
-
+;
   // Iterate through all meshes
   #pragma omp simd
   for (cgltf_size mesh_index = 0; mesh_index < data->meshes_count; ++mesh_index)
@@ -328,73 +324,85 @@ void set_animation(player * p, cgltf_animation * animation){
 }
 
 
-void calculate_joint_matrices(const cgltf_skin *skin, const float *node_world_matrices, float *joint_matrices){
+void calculate_joint_matrices(const cgltf_skin *skin, float *joint_matrices){
   // Loop through each joint in the skin
   for (cgltf_size i = 0; i < skin->joints_count; ++i)
   {
-    cgltf_node *joint_node = skin->joints[i];
-
     // Get the world matrix of the joint
-    float joint_world_matrix[16];
-    memcpy(joint_world_matrix, &node_world_matrices[(joint_node - skin->joints[0]) * 16], sizeof(float) * 16);
+    float joint_transform[16];
+    if(skin->joints[i]->has_matrix){
+      memcpy(joint_transform, skin->joints[i]->matrix, sizeof(float)*16);
+    }
+    else{
+      cgltf_node_transform_local(skin->joints[i], joint_transform);
+    }
 
     // Get the inverse bind matrix for the joint
-    float inverse_bind_matrix[16];
-    cgltf_accessor_read_float(skin->inverse_bind_matrices, i*16, inverse_bind_matrix, 16);
+    float inverse_bind_matrix[16]={1,0,0,0,0,1,0,0,0,0,1,0,0,0,1};
+    if(skin->inverse_bind_matrices)
+      cgltf_accessor_read_float(skin->inverse_bind_matrices, i, inverse_bind_matrix, 16);
 
     // Multiply the world matrix by the inverse bind matrix
-    //asVecTranspose(inverse_bind_matrix, inverse_bind_matrix, 4, 4);
-    asVecmat4xmat4(&joint_matrices[i * 16], joint_world_matrix, inverse_bind_matrix);
+    asVecmat4xmat4(&joint_matrices[i * 16], joint_transform, inverse_bind_matrix);
   }
 }
 
-// Apply skinning to transform vertex positions
 void apply_skinning(cgltf_accessor *position_accessor, cgltf_accessor *joints_accessor,
                     cgltf_accessor *weights_accessor, float *joint_matrices,
-                    vec3 *output_positions, size_t vertex_count){
-  for (cgltf_size i = 0; i < vertex_count; i+=4)
-  {
-    float position[3];
-    cgltf_accessor_read_float(position_accessor, i, position, 3);
+                    vec3 *output_positions){
+  for (cgltf_size i = 0; i < position_accessor->count; i++){
+    float position[4];
+    cgltf_accessor_read_float(position_accessor, i, position, 4);
+    position[3] = 1.0f;
 
     unsigned int joints[4];
     cgltf_accessor_read_uint(joints_accessor, i, joints, 4);
 
     float weights[4];
-    cgltf_accessor_read_float(weights_accessor, i, weights, 4);
+    cgltf_accessor_read_float(weights_accessor, i , weights, 4);
+  
+    float skin_mat[4][4] = {{0.0f},{0.0f},{0.0f},{0.0f}};
+    for(int attr_index=0; attr_index < 4; attr_index++){
+      const float weight = weights[attr_index];
+      const float * jmat = &joint_matrices[joints[attr_index] * 16];
+      if(weight == 0){
+        continue;
+      }
+      for(int ii = 0; ii < 4; ii++){
+        for(int jj =0; jj < 4; jj++){
+          skin_mat[ii][jj] += weight * jmat[ii * 4 + jj];
+        }
+      }
+    }
+    float outp[4];
+    mat4xvec4(outp, skin_mat, position);
 
-    //vec3 transformed_position = {0, 0, 0};
-    #pragma omp simd
-    for (int j = 0; j < 4; ++j)
-    {
-      float weight = weights[j];
-      if (weight > 0)
-      {
+    /*#pragma omp simd
+    for (int j = 0; j < 4; ++j){
+      if (weights[j] != 0){
         const float *jmatrix = &joint_matrices[joints[j] * 16];
-        position[0] += weight * (jmatrix[0] * position[0] +
+        position[0] += weights[j] * (jmatrix[0] * position[0] +
                                             jmatrix[1] * position[1] +
                                             jmatrix[2] * position[2] +
                                             jmatrix[3]);
-        position[1] += weight * (jmatrix[4] * position[0] +
+        position[1] += weights[j] * (jmatrix[4] * position[0] +
                                             jmatrix[5] * position[1] +
                                             jmatrix[6] * position[2] +
                                             jmatrix[7]);
-        position[2] += weight * (jmatrix[8] * position[0] +
+        position[2] += weights[j] * (jmatrix[8] * position[0] +
                                             jmatrix[9] * position[1] +
                                             jmatrix[10] * position[2] +
                                             jmatrix[11]);
       }
-    }
-    output_positions[i/4] = (vec3){position[0],position[1],position[2]};
+    }*/
+    output_positions[i] = (vec3){outp[0],outp[1],outp[2]};
+    //output_positions[i] = (vec3){position[0],position[1],position[2]};
   }
 }
 
 // Extract animated vertex positions for rendering
 void extract_animated_vertex_positions(cgltf_data *data, vec3 *output_positions){
   size_t node_count = data->nodes_count;
-  float *node_world_matrices = malloc(node_count * 16 * sizeof(float));
-  cgltf_node_transform_world(data->nodes, node_world_matrices);
-
   for (cgltf_size node_index = 0; node_index < node_count; ++node_index)
   {
     cgltf_node *node = &data->nodes[node_index];
@@ -404,30 +412,24 @@ void extract_animated_vertex_positions(cgltf_data *data, vec3 *output_positions)
     }
 
     cgltf_mesh *mesh = node->mesh;
-    float *node_world_matrix = &node_world_matrices[node_index * 16];
-
     for (cgltf_size prim_index = 0; prim_index < mesh->primitives_count; ++prim_index)
     {
       cgltf_primitive *prim = &mesh->primitives[prim_index];
-
       cgltf_accessor *position_accessor = NULL;
       cgltf_accessor *joints_accessor = NULL;
       cgltf_accessor *weights_accessor = NULL;
 
-      for (cgltf_size attr_index = 0; attr_index < prim->attributes_count; ++attr_index)
-      {
+      for (cgltf_size attr_index = 0; attr_index < prim->attributes_count; ++attr_index){
         cgltf_attribute *attr = &prim->attributes[attr_index];
-        if (attr->type == cgltf_attribute_type_position)
-        {
-          position_accessor = attr->data;
-        }
-        else if (attr->type == cgltf_attribute_type_joints)
-        {
-          joints_accessor = attr->data;
-        }
-        else if (attr->type == cgltf_attribute_type_weights)
-        {
-          weights_accessor = attr->data;
+        switch(attr->type){
+          case cgltf_attribute_type_position:
+            position_accessor = attr->data;
+          case cgltf_attribute_type_joints:
+            joints_accessor = attr->data;
+          case cgltf_attribute_type_weights:
+            weights_accessor = attr->data;
+          default:
+            continue;
         }
       }
 
@@ -437,30 +439,35 @@ void extract_animated_vertex_positions(cgltf_data *data, vec3 *output_positions)
         continue;
       }
 
-      cgltf_size vertex_count = position_accessor->count;
+      if(!joints_accessor){
+        fprintf(stderr, "no JOINT attribute found for primative %zu. \n", prim_index);
+        continue;
+      }
 
-      if (node->skin && joints_accessor && weights_accessor){
+      if(!weights_accessor){
+        fprintf(stderr, "No WEIGHTS arribute found for primative %zu\n", prim_index);
+        continue;
+      }
+
+      if (node->skin){
         float *joint_matrices = malloc(node->skin->joints_count * 16 * sizeof(float));
-        calculate_joint_matrices(node->skin, node_world_matrices, joint_matrices);
-        apply_skinning(position_accessor, joints_accessor, weights_accessor, joint_matrices, output_positions, vertex_count);
+        calculate_joint_matrices(node->skin, joint_matrices);
+        apply_skinning(position_accessor, joints_accessor, weights_accessor, joint_matrices, output_positions);
         free(joint_matrices);
       }
       else{
         // Transform positions without skinning
-        for (cgltf_size i = 0; i < vertex_count; ++i)
-        {
-          float position[4] = {1.0f}, node_world_mat4[4][4], transformed_position[4];
+        for (cgltf_size i = 0; i < position_accessor->count; ++i){
+          float position[4] = {1.0f}, node_world_matrix[16], node_world_mat4[4][4], transformed_position[4];
           cgltf_accessor_read_float(position_accessor, i, position, 3);
-          position[3] = 1.0f;
+          cgltf_node_transform_local(node, node_world_matrix);
           vMat4toMat4(node_world_mat4, node_world_matrix);
           mat4xvec4(transformed_position, node_world_mat4, position);
-          output_positions[i] = (vec3){transformed_position[0], transformed_position[1], transformed_position[2]};
+          output_positions[i] = (vec3){transformed_position[0], transformed_position[2], transformed_position[1]};
         }
       }
     }
   }
-
-  free(node_world_matrices);
 }
 
 void updateGltfDisplayChar(player p, vec3 *verts, vec3 lightSource){
