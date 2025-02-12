@@ -22,6 +22,7 @@ player initPlayer(int Health, int Endurance, cgltf_data *inputData){
   p.position = getLtfCOM(inputData);
   p.lockedon = 1;
   p.currentAnimation = findAnimationName(inputData, "Idol");
+  p.translation = extract_translations(inputData);
   return p;
 };
 
@@ -30,6 +31,7 @@ void closePlayer(player p){
   free(p.faces);
   free(p.verts);
   free(p.displayChar);
+  free(p.translation);
 };
 
 cgltf_data *processGltf(const char *filename){
@@ -199,7 +201,6 @@ int count_verts(cgltf_data *data){
 }
 
 void extract_static_player_verts(cgltf_data *data, vec3 *Pos){
-
   int currentVert = 0;
   for (cgltf_size mesh_index = 0; mesh_index < data->meshes_count; ++mesh_index)
   {
@@ -216,7 +217,7 @@ void extract_static_player_verts(cgltf_data *data, vec3 *Pos){
           {
             float position[3];
             cgltf_accessor_read_float(attr->data, i, position,3);
-            Pos[currentVert] = (vec3){position[0],position[2],position[1]};
+            Pos[currentVert] = (vec3){position[0],position[1],position[2]};
             currentVert++;
           }
         }
@@ -377,26 +378,43 @@ void apply_skinning(cgltf_accessor *position_accessor, cgltf_accessor *joints_ac
     float outp[4];
     mat4xvec4(outp, skin_mat, position);
 
-    /*#pragma omp simd
-    for (int j = 0; j < 4; ++j){
-      if (weights[j] != 0){
-        const float *jmatrix = &joint_matrices[joints[j] * 16];
-        position[0] += weights[j] * (jmatrix[0] * position[0] +
-                                            jmatrix[1] * position[1] +
-                                            jmatrix[2] * position[2] +
-                                            jmatrix[3]);
-        position[1] += weights[j] * (jmatrix[4] * position[0] +
-                                            jmatrix[5] * position[1] +
-                                            jmatrix[6] * position[2] +
-                                            jmatrix[7]);
-        position[2] += weights[j] * (jmatrix[8] * position[0] +
-                                            jmatrix[9] * position[1] +
-                                            jmatrix[10] * position[2] +
-                                            jmatrix[11]);
-      }
-    }*/
     output_positions[i] = (vec3){outp[0],outp[1],outp[2]};
     //output_positions[i] = (vec3){position[0],position[1],position[2]};
+  }
+}
+
+void morph_targets(cgltf_mesh *mesh ,cgltf_primitive *prim, cgltf_accessor *position_accessor,vec3 *output_positions){
+  for (cgltf_size i = 0; i < position_accessor->count; ++i){
+    float position[3];
+    cgltf_accessor_read_float(position_accessor, i, position, 3);
+
+    for(int ti=0;ti < prim->targets_count; ti++){
+      cgltf_accessor * morph_accessor = NULL;
+      for(int ai=0;ai < prim->targets[ti].attributes_count; ai++){
+        if(prim->targets[ti].attributes[ai].type == cgltf_attribute_type_position){
+          morph_accessor = prim->targets[ti].attributes[ai].data;
+          break;
+        }
+      }
+
+      float weight = mesh->weights[ti];
+
+      if(!morph_accessor || ti > mesh->weights_count){
+        continue;
+      }
+      float p_morph[3];
+      cgltf_accessor_read_float(morph_accessor, i, p_morph, 3);
+      
+      for(int pi = 0; pi < 3; pi++){
+        position[pi] += weight * p_morph[pi];
+      }
+    }
+    /*cgltf_accessor_read_float(position_accessor, i, position, 4);
+    cgltf_node_transform_local(node, node_world_matrix);
+    vMat4toMat4(node_world_mat4, node_world_matrix);
+    mat4xvec4(transformed_position, node_world_mat4, position);
+    output_positions[i] = (vec3){transformed_position[0], transformed_position[1], transformed_position[2]};*/
+    output_positions[i] = (vec3){position[0],position[1],position[2]};
   }
 }
 
@@ -412,8 +430,7 @@ void extract_animated_vertex_positions(cgltf_data *data, vec3 *output_positions)
     }
 
     cgltf_mesh *mesh = node->mesh;
-    for (cgltf_size prim_index = 0; prim_index < mesh->primitives_count; ++prim_index)
-    {
+    for (cgltf_size prim_index = 0; prim_index < mesh->primitives_count; ++prim_index){
       cgltf_primitive *prim = &mesh->primitives[prim_index];
       cgltf_accessor *position_accessor = NULL;
       cgltf_accessor *joints_accessor = NULL;
@@ -457,14 +474,7 @@ void extract_animated_vertex_positions(cgltf_data *data, vec3 *output_positions)
       }
       else{
         // Transform positions without skinning
-        for (cgltf_size i = 0; i < position_accessor->count; ++i){
-          float position[4] = {1.0f}, node_world_matrix[16], node_world_mat4[4][4], transformed_position[4];
-          cgltf_accessor_read_float(position_accessor, i, position, 3);
-          cgltf_node_transform_local(node, node_world_matrix);
-          vMat4toMat4(node_world_mat4, node_world_matrix);
-          mat4xvec4(transformed_position, node_world_mat4, position);
-          output_positions[i] = (vec3){transformed_position[0], transformed_position[2], transformed_position[1]};
-        }
+        morph_targets(mesh,prim,position_accessor,output_positions);
       }
     }
   }
@@ -521,4 +531,18 @@ vec3 getLtfCOM(cgltf_data *data){
     COM.z /= (float)currentVert;
   }
   return COM;
+}
+
+vec3 * extract_translations(cgltf_data *data){
+  int count = data->nodes_count;
+  vec3 *translation = malloc(count * sizeof(vec3));
+  for(int ni=0;ni < count; ni++){
+    cgltf_node* node = &data->nodes[ni];
+    float x = node->has_translation ? node->translation[0] : 0.0f;
+    float y = node->has_translation ? node->translation[1] : 0.0f;
+    float z = node->has_translation ? node->translation[2] : 0.0f;
+    translation[ni] = (vec3){x,y,z};
+    printf("%lf,%lf,%lf\n",x,y,z);
+  }
+  return translation;
 }

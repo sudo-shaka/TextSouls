@@ -24,7 +24,7 @@ void engine_start(engine *engine){
   mousemask(ALL_MOUSE_EVENTS | REPORT_MOUSE_POSITION, NULL);
   mouseinterval(0);
   const char * ppath = "/home/shaka/Code/C/TextSouls/resources/example.gltf";
-  const char * bpath = "/home/shaka/Code/C/TextSouls/resources/example.gltf";
+  const char * bpath = "/home/shaka/Code/C/TextSouls/resources/BoxAnimated.glb";
   cgltf_data * player_data = processGltf(ppath);
   cgltf_data * boss_data = processGltf(bpath);
   if(player_data == NULL || boss_data == NULL){
@@ -207,7 +207,7 @@ void render(engine *engine){
 
   // draw character and objects
   //draw_floor(engine->projectMat,engine->viewMatrix,engine->screen_width,engine->screen_height);
-  player_to_screen(engine, &engine->player);
+  //player_to_screen(engine, &engine->player);
   player_to_screen(engine, &engine->boss);
   draw_bar(1, 1, p.maxHealth, (float)p.currentHeath / (float)p.maxHealth);
   draw_bar(1, 2, p.maxEndurance, p.currEndurance / p.maxEndurance);
