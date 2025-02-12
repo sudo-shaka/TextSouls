@@ -1,2 +1,0 @@
-function to get vec3 array from cgltf_data 
-ncurses for better terminal display

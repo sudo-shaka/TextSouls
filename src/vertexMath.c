@@ -280,13 +280,14 @@ float calc_luminesence(const vec3 lightSource, const vec3 facePoint, vec3 faceNo
   lightDir = normalize(lightDir);
   faceNormal = normalize(faceNormal);
   float lumin = dot3(faceNormal, lightDir);
-  lumin /= 2.0f;
+  lumin /= 3.0f;
   return fmaxf(lumin, 0.0f);
 }
 char lumin_to_char(float l){
   l *= 11;
-  int idx = (int)l;
-  char val = ".,-~:;=!*#$@"[idx];
+  int idx = (int)floor(l);
+  const char *val_arr = ".,-~:;=!*#$@";
+  const char val = val_arr[idx];
   return val;
 }
 
