@@ -124,14 +124,14 @@ void apply_animation(player *p){
     case cgltf_animation_path_type_scale:
       memcpy(node->scale, result, sizeof(float) * component_count);
       break;
-    case cgltf_animation_path_type_weights:
+    /*case cgltf_animation_path_type_weights:
       if (node->mesh->weights_count == 0)
       {
         break;
       }
       interpolate(sampler, p->animation_time, result, node->mesh->weights_count);
       memcpy(node->mesh->weights, result, sizeof(float) * node->mesh->weights_count);
-      break;
+      break;*/
     default:
       break;
     }
@@ -205,6 +205,7 @@ void extract_static_player_verts(cgltf_data *data, vec3 *Pos){
   for (cgltf_size mesh_index = 0; mesh_index < data->meshes_count; ++mesh_index)
   {
     cgltf_mesh *mesh = &data->meshes[mesh_index];
+    if(!mesh) continue;
     for (cgltf_size prim_index = 0; prim_index < mesh->primitives_count; ++prim_index)
     {
       cgltf_primitive *prim = &mesh->primitives[prim_index];
@@ -379,42 +380,6 @@ void apply_skinning(cgltf_accessor *position_accessor, cgltf_accessor *joints_ac
     mat4xvec4(outp, skin_mat, position);
 
     output_positions[i] = (vec3){outp[0],outp[1],outp[2]};
-    //output_positions[i] = (vec3){position[0],position[1],position[2]};
-  }
-}
-
-void morph_targets(cgltf_mesh *mesh ,cgltf_primitive *prim, cgltf_accessor *position_accessor,vec3 *output_positions){
-  for (cgltf_size i = 0; i < position_accessor->count; ++i){
-    float position[3];
-    cgltf_accessor_read_float(position_accessor, i, position, 3);
-
-    for(int ti=0;ti < prim->targets_count; ti++){
-      cgltf_accessor * morph_accessor = NULL;
-      for(int ai=0;ai < prim->targets[ti].attributes_count; ai++){
-        if(prim->targets[ti].attributes[ai].type == cgltf_attribute_type_position){
-          morph_accessor = prim->targets[ti].attributes[ai].data;
-          break;
-        }
-      }
-
-      float weight = mesh->weights[ti];
-
-      if(!morph_accessor || ti > mesh->weights_count){
-        continue;
-      }
-      float p_morph[3];
-      cgltf_accessor_read_float(morph_accessor, i, p_morph, 3);
-      
-      for(int pi = 0; pi < 3; pi++){
-        position[pi] += weight * p_morph[pi];
-      }
-    }
-    /*cgltf_accessor_read_float(position_accessor, i, position, 4);
-    cgltf_node_transform_local(node, node_world_matrix);
-    vMat4toMat4(node_world_mat4, node_world_matrix);
-    mat4xvec4(transformed_position, node_world_mat4, position);
-    output_positions[i] = (vec3){transformed_position[0], transformed_position[1], transformed_position[2]};*/
-    output_positions[i] = (vec3){position[0],position[1],position[2]};
   }
 }
 
@@ -428,7 +393,6 @@ void extract_animated_vertex_positions(cgltf_data *data, vec3 *output_positions)
     {
       continue; // Skip nodes without meshes
     }
-
     cgltf_mesh *mesh = node->mesh;
     for (cgltf_size prim_index = 0; prim_index < mesh->primitives_count; ++prim_index){
       cgltf_primitive *prim = &mesh->primitives[prim_index];
@@ -473,8 +437,14 @@ void extract_animated_vertex_positions(cgltf_data *data, vec3 *output_positions)
         free(joint_matrices);
       }
       else{
-        // Transform positions without skinning
-        morph_targets(mesh,prim,position_accessor,output_positions);
+        for(int v=0; v<position_accessor->count; v++){
+          float transform_vector[16], transform_matrix[4][4], position[4];
+          cgltf_accessor_read_float(position_accessor, v, position, 4);
+          cgltf_node_transform_local(node,transform_vector);
+          vMat4toMat4(transform_matrix, transform_vector);
+          mat4xvec4(position, transform_matrix, position);
+          output_positions[v] = (vec3){position[0],position[1],position[3]};
+        }
       }
     }
   }
