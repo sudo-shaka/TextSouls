@@ -23,7 +23,6 @@ typedef struct player{
   vec3 bodyHitbox[8];
   vec3 weaponHitbox[8];
   cgltf_animation *currentAnimation;
-  vec3* translation;
 } player;
 
 player initPlayer(int Health, int Endurance, cgltf_data *inputData);
@@ -37,7 +36,6 @@ int count_faces(const cgltf_data *data);
 float calculate_total_animation_time(const cgltf_animation *animation);
 void set_animation(player *p, cgltf_animation *animation);
 int count_verts(cgltf_data *data);
-vec3 * extract_translations(cgltf_data* data);
 vec3 getLtfCOM(cgltf_data *data);
 cgltf_animation *findAnimationName(cgltf_data *data, const char *name);
 cgltf_animation *findAnimationName(cgltf_data *data, const char *name);

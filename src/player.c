@@ -21,8 +21,7 @@ player initPlayer(int Health, int Endurance, cgltf_data *inputData){
   extract_face_indices(inputData, p.faces);
   p.position = getLtfCOM(inputData);
   p.lockedon = 1;
-  p.currentAnimation = findAnimationName(inputData, "Idol");
-  p.translation = extract_translations(inputData);
+  p.currentAnimation = NULL;
   return p;
 };
 
@@ -31,7 +30,6 @@ void closePlayer(player p){
   free(p.faces);
   free(p.verts);
   free(p.displayChar);
-  free(p.translation);
 };
 
 cgltf_data *processGltf(const char *filename){
@@ -94,7 +92,6 @@ void apply_animation(player *p){
   cgltf_animation * animation = p->currentAnimation;
   if (!animation)
   {
-    fprintf(stderr, "stderr: Animation is NULL\n");
     return;
   }
   for (cgltf_size i = 0; i < animation->channels_count; i++)
@@ -514,18 +511,4 @@ vec3 getLtfCOM(cgltf_data *data){
     COM.z /= (float)currentVert;
   }
   return COM;
-}
-
-vec3 * extract_translations(cgltf_data *data){
-  int count = data->nodes_count;
-  vec3 *translation = malloc(count * sizeof(vec3));
-  for(int ni=0;ni < count; ni++){
-    cgltf_node* node = &data->nodes[ni];
-    float x = node->has_translation ? node->translation[0] : 0.0f;
-    float y = node->has_translation ? node->translation[1] : 0.0f;
-    float z = node->has_translation ? node->translation[2] : 0.0f;
-    translation[ni] = (vec3){x,y,z};
-    printf("%lf,%lf,%lf\n",x,y,z);
-  }
-  return translation;
 }
