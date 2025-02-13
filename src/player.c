@@ -312,32 +312,31 @@ void set_animation(player * p, cgltf_animation * animation){
 }
 
 
-void calculate_joint_matrices(const cgltf_skin *skin, float *joint_matrices){
-  // Loop through each joint in the skin
-  for (cgltf_size i = 0; i < skin->joints_count; ++i)
-  {
-    // Get the world matrix of the joint
-    float joint_transform[16];
-    if(skin->joints[i]->has_matrix){
-      memcpy(joint_transform, skin->joints[i]->matrix, sizeof(float)*16);
-    }
-    else{
-      cgltf_node_transform_local(skin->joints[i], joint_transform);
-    }
-
-    // Get the inverse bind matrix for the joint
-    float inverse_bind_matrix[16]={1,0,0,0,0,1,0,0,0,0,1,0,0,0,1};
-    if(skin->inverse_bind_matrices)
-      cgltf_accessor_read_float(skin->inverse_bind_matrices, i, inverse_bind_matrix, 16);
-
-    // Multiply the world matrix by the inverse bind matrix
-    asVecmat4xmat4(&joint_matrices[i * 16], joint_transform, inverse_bind_matrix);
+void calculate_joint_matrix(const cgltf_skin *skin, const int index,float *joint_matrix){
+  // Get the world matrix of the joint
+  float joint_transform[16];
+  if(skin->joints[index]->has_matrix){
+    memcpy(joint_transform, skin->joints[index]->matrix, sizeof(float)*16);
   }
+  else{
+    cgltf_node_transform_local(skin->joints[index], joint_transform);
+  }
+
+  // Get the inverse bind matrix for the joint
+  float inverse_bind_matrix[16]={1,0,0,0,0,1,0,0,0,0,1,0,0,0,1};
+  if(skin->inverse_bind_matrices)
+    cgltf_accessor_read_float(skin->inverse_bind_matrices, index, inverse_bind_matrix, 16);
+
+  // Multiply the world matrix by the inverse bind matrix
+  asVecmat4xmat4(joint_matrix, joint_transform, inverse_bind_matrix);
 }
 
-void apply_skinning(cgltf_accessor *position_accessor, cgltf_accessor *joints_accessor,
-                    cgltf_accessor *weights_accessor, float *joint_matrices,
-                    vec3 *output_positions){
+void apply_skinning(
+    const cgltf_skin * skin,
+    const cgltf_accessor *position_accessor, 
+    const cgltf_accessor *joints_accessor,
+    const cgltf_accessor *weights_accessor,
+    vec3 *output_positions){
   #pragma omp simd
   for (cgltf_size i = 0; i < position_accessor->count; i++){
     float position[4];
@@ -351,30 +350,33 @@ void apply_skinning(cgltf_accessor *position_accessor, cgltf_accessor *joints_ac
     cgltf_accessor_read_float(weights_accessor, i , weights, 4);
   
     float skin_mat[4][4] = {{0.0f},{0.0f},{0.0f},{0.0f}};
+
     for(int accessor_index=0; accessor_index < 4; accessor_index++){
       const float weight = weights[accessor_index];
-      const float * jmat = &joint_matrices[joint_indicies[accessor_index] * 16];
       if(weight == 0){
         continue;
       }
+
+      float j_matrix[16];
+      calculate_joint_matrix(skin, joint_indicies[accessor_index], j_matrix);
+
       for(int ii = 0; ii < 4; ii++){
         for(int jj =0; jj < 4; jj++){
-          skin_mat[ii][jj] += weight * jmat[ii * 4 + jj];
+          skin_mat[ii][jj] += weight * j_matrix[ii * 4 + jj];
         }
       }
     }
     float outp[4];
     mat4xvec4(outp, skin_mat, position);
-
     output_positions[i] = (vec3){outp[0],outp[1],outp[2]};
   }
 }
 
 
-void transform_skinned_mesh_positions(vec3* output_positions, cgltf_node * node){
+void transform_skinned_mesh_positions(const cgltf_node * node, vec3 *output_positions){
   cgltf_mesh *mesh = node->mesh;
   if(!mesh) return;
-  float* joint_matrices = malloc(node->skin->joints_count * 16 * sizeof(float));
+  //float* joint_matrices = malloc(node->skin->joints_count * 16 * sizeof(float));
   for(cgltf_size pi=0; pi < mesh->primitives_count; pi++){
     cgltf_primitive *prim = &mesh->primitives[pi];
     cgltf_accessor *position_accessor = NULL;
@@ -409,13 +411,13 @@ void transform_skinned_mesh_positions(vec3* output_positions, cgltf_node * node)
       fprintf(stderr, "No WEIGHTS arribute found for primative %zu\n", pi);
       continue;
     }
-    calculate_joint_matrices(node->skin, joint_matrices);
-    apply_skinning(position_accessor, joints_accessor, weights_accessor, joint_matrices, output_positions);
+    //calculate_joint_matrices(node->skin, joint_matrices);
+    apply_skinning(node->skin,position_accessor, joints_accessor, weights_accessor, output_positions);
   }
-  free(joint_matrices);
+  //free(joint_matrices);
 }
 
-void transform_positions(vec3* output_positions, cgltf_node * node){
+void transform_positions(const cgltf_node * node, vec3* output_positions){
   cgltf_mesh *mesh = node->mesh;
   if(!mesh) return;
 
@@ -454,10 +456,10 @@ void extract_animated_vertex_positions(cgltf_data *data, vec3 *output_positions)
   for (cgltf_size node_index = 0; node_index < node_count; ++node_index){
     cgltf_node *node = &data->nodes[node_index];
     if(node->skin){
-      transform_skinned_mesh_positions(output_positions,node);
+      transform_skinned_mesh_positions(node,output_positions);
       continue;
     }
-    transform_positions(output_positions,node);
+    transform_positions(node,output_positions);
   }
 }
 
