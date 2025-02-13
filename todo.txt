@@ -1,0 +1,5 @@
+make gltf files for boss and player
+make boss AI
+GPU calculations if running too slow
+Add weapons and player rotational movement
+hit box calculations
