@@ -24,7 +24,8 @@ void engine_start(engine *engine){
   mousemask(ALL_MOUSE_EVENTS | REPORT_MOUSE_POSITION, NULL);
   mouseinterval(0);
   const char * ppath = "resources/player.glb";
-  const char * bpath = "resources/example.gltf";
+  //const char * bpath = "./resources/AnimatedTriangle.gltf";
+  const char * bpath = "./resources/example.gltf";
   cgltf_data * player_data = processGltf(ppath);
   cgltf_data * boss_data = processGltf(bpath);
   if(player_data == NULL || boss_data == NULL){
@@ -242,8 +243,8 @@ void player_to_screen(engine *e,
       for (int vi = 0; vi < 3; vi++){
         int x = (int)a2[vi].x;
         int y = (int)a2[vi].y;
-        char ch = p->displayChar[idx[vi]];
-        mvaddch(y, x, ch);
+        //char ch = p->displayChar[idx[vi]];
+        mvaddch(y, x, '#');
       }
     }
   }

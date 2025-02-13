@@ -191,6 +191,7 @@ void point_3D_projection(
     const float viewMatrix[4][4],
     const float viewWidth,
     const float viewHeight){
+  #pragma omp parallel for
   for (int i = 0; i < numPoints; i++){
     // convert 3d point to 3f homogenous coordinate
     float pointHomo[4] = {points3D[i].x+offset.x, points3D[i].y+offset.y, points3D[i].z+offset.z, 1.0f};

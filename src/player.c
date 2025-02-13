@@ -338,6 +338,7 @@ void calculate_joint_matrices(const cgltf_skin *skin, float *joint_matrices){
 void apply_skinning(cgltf_accessor *position_accessor, cgltf_accessor *joints_accessor,
                     cgltf_accessor *weights_accessor, float *joint_matrices,
                     vec3 *output_positions){
+  #pragma omp simd
   for (cgltf_size i = 0; i < position_accessor->count; i++){
     float position[4];
     cgltf_accessor_read_float(position_accessor, i, position, 4);
